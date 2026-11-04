@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Frontend build
+dist/
+
+# Rust
+target/
+Cargo.lock.bk
+
+# Tauri
+src-tauri/gen/
+
+# Vendored third-party binaries (fetched by scripts/, never committed)
+vendor/
+
+# Generated IPC bindings
+src/lib/ipc/bindings/
+
+# Test artifacts
+coverage/
+tests/fixtures/generated/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
