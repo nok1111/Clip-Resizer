@@ -1,6 +1,6 @@
-# Clip Resizer — Arquitectura propuesta (Fase 0 → aprobación)
+# Clip Resizer — Arquitectura (validada)
 
-Estado: **propuesta para aprobación**. Nada de esto está implementado todavía.
+Estado: **validada** (decisiones de la sección 10 resueltas el 2026-11-04). Lista para Fase 1.
 Base: `docs/REFERENCE_PROJECT_ANALYSIS.md` (patrones verificados en Image Batch Studio, Seller Profit Calculator y PDF Toolbox Pro).
 
 ---
@@ -54,28 +54,24 @@ Prefijo de crates: **`cr-`** (clip resizer), igual que `ibs-`/`psc-`/`ptp-`.
 
 ### 3.1 Distribución (patrón verificado: `fetch-pdfium.ps1`)
 
-- `scripts/fetch-ffmpeg.ps1`: descarga `ffmpeg-release-essentials.zip` de **gyan.dev** (build oficial de releases de FFmpeg; la alternativa BtbN/FFmpeg-Builds compila `master` — peor para fijar versión estable). Versión fijada en el script + **SHA-256 verificado** + extracción a `vendor/ffmpeg/` (gitignored; nunca commiteado). Idempotente ("ya presente → salir").
+- `scripts/fetch-ffmpeg.ps1`: descarga el build **LGPL** de FFmpeg (gyan.dev publica variantes lgpl; la alternativa BtbN/FFmpeg-Builds también tiene variantes `-lgpl` pero compila `master` — peor para fijar versión estable). Versión fijada en el script + **SHA-256 verificado** + extracción a `vendor/ffmpeg/` (gitignored; nunca commiteado). Idempotente ("ya presente → salir").
 - `tauri.conf.json` → `bundle.resources`: `vendor/ffmpeg/bin/ffmpeg.exe` y `ffprobe.exe` → `ffmpeg/` junto al ejecutable. El host los resuelve por ruta relativa al exe (mismo patrón que `worker_exe()` en ptp), con `CLIP_FFMPEG`/`CLIP_FFPROBE` env vars para desarrollo/tests.
 - Tamaño: ~80–100 MB instalados (los dos exes). Aceptable para el instalador.
 
-### 3.2 Licencias — decisión: build **GPL** de FFmpeg + cumplimiento estricto
+### 3.2 Licencias — decisión validada: build **LGPL** de FFmpeg
 
-Opciones evaluadas:
+**Decisión del producto (validada):** se distribuirá el build **LGPL**, no GPL.
 
-| Opción | Encoders H.264/H.265 | Veredicto |
-|---|---|---|
-| Build **GPL** (`--enable-gpl`, incluye libx264/libx265) | libx264 (el mejor encoder H.264 software) + libx265 + encoders hardware | ✅ **Recomendada** |
-| Build LGPL (sin `--enable-gpl`) | Sin x264/x265 → solo encoders HW (mf/nvenc/qsv/amf) o FFmpeg nativo (calidad pobre para H.264) | ❌ degrada el producto sin GPU |
-| Linkear FFmpeg como DLLs | Misma licencia, más archivos, sin ventaja (no lo usamos como librería) | ❌ |
-| Reimplementar/Node sidecar | — | ❌ |
+Consecuencias:
 
-Por qué GPL es aceptable comercialmente **aquí**: FFmpeg se distribuye como **proceso independiente** invocado por línea de comandos. Clip Resizer no enlaza ni deriva de FFmpeg → "mere aggregation" (GPL §2), la práctica estándar de la industria en conversores comerciales. Obligaciones que cumpliremos:
-
-1. `THIRD_PARTY_NOTICES` con textos GPLv3/LGPLv2.1 y atribución, visible en Settings → About (mismo mecanismo ya previsto en la familia).
-2. Oferta de fuentes: copiar el tarball fuente correspondiente al build (gyan publica el source usado) o written offer en la documentación del producto.
-3. No registrar "FFmpeg" como marca del producto ni ocultar su presencia.
-
-Riesgo honesto a documentar: las patentes H.264/H.265 (MPEG-LA/Access Advance) pueden reclamar regalías a distribuidores de encoders software. Mitigaciones: (a) preferir encoders hardware proporcionados por el SO/GPU (`h264_mf` — Microsoft ya licencia su implementación — `h264_nvenc`, `h264_qsv`, `h264_amf`) cuando existan, con libx264/libx265 como fallback; (b) es el mismo riesgo que asumen todos los competidores de esta categoría; (c) consulta legal antes del lanzamiento comercial.
+1. **Sin libx264 ni libx265** (ambos GPL). Los encoders H.264/H.265 pasan a ser los proporcionados por el SO/GPU, que el build LGPL sí soporta:
+   - `h264_mf` / `hevc_mf` — Windows Media Foundation: presente en **todo** Win10/11, sin dependencia de GPU. Es el baseline garantizado; además Microsoft ya licencia su implementación H.264 → la ruta más limpia de patentes.
+   - `h264_nvenc`/`hevc_nvenc` (NVIDIA), `h264_qsv`/`hevc_qsv` (Intel), `h264_amf`/`hevc_amf` (AMD) — se usan si el hardware existe.
+   - Fallback software H.264: `libopenh264` (BSD) **si el build lgpl fijado lo incluye** — se verificará en Fase 1 con `ffmpeg -encoders`; si no, `h264_mf` cubre el 100 % de Windows.
+2. **Matriz de encoders por capacidad, no por nombre** (`cr-ffmpeg`): al arrancar se parsea `ffmpeg -encoders` y se construye la lista de encoders H.264/HEVC disponibles en orden de preferencia (hw primero → openh264 → error claro). Los presets de calidad se mapean por encoder (`-rate_control`/quality para mf, `-cq`/`-preset` para nvenc, `-global_quality` para qsv) porque no existe `-crf` universal.
+3. **Obligaciones LGPL** (más leves que GPL): texto LGPLv2.1 + atribución en `THIRD_PARTY_NOTICES` (Settings → About), oferta de fuentes de FFmpeg, y nada más: los binarios `.exe` no se enlazan — la app no deriva de FFmpeg en ningún caso.
+4. Filtros necesarios (`scale`, `crop`, `pad`, `overlay`, `gblur`, `eq`, `fps`, `drawbox`/`drawgrid`, `split`) son todos LGPL → sin restricción.
+5. Patent note honesta se mantiene en `KNOWN_ISSUES.md` (L6): preferir encoders del SO también es la ruta de menor exposición a MPEG-LA.
 
 ### 3.3 Ejecución controlada (patrón verificado: `worker_pool.rs` + `job_object.rs` de ptp)
 
@@ -101,7 +97,7 @@ Riesgo honesto a documentar: las patentes H.264/H.265 (MPEG-LA/Access Advance) p
 | Safe zones quemadas (opt-in) | `drawbox`/`drawgrid` al final de la cadena |
 | fps | `fps=N` explícito (nunca `-r` ambiguo) |
 | Audio | `-c:a copy` (compatible MP4) | `-c:a aac -b:a 192k` | `-an` |
-| Vídeo | `-c:v libx264 -preset P -crf C` / `libx265` / `h264_mf|nvenc|qsv|amf` con fallback automático documentado |
+| Vídeo | matriz por capacidad: `h264_mf` (baseline universal Win10/11) → `h264_nvenc|qsv|amf` si hay GPU → `libopenh264` si el build lo trae; H.265 vía `hevc_mf|nvenc|qsv|amf`. Calidad mapeada por encoder (§3.2.2) |
 
 Siempre re-encode de vídeo al cambiar geometría/fps (stream-copy solo cuando absolutamente nada cambia — MVP: nunca). `setsar=1` final para evitar SAR raros. `+faststart` en MP4 para publicación social.
 
@@ -118,7 +114,7 @@ WebView2 = Chromium de Edge: reproduce **H.264/AAC en MP4/M4V/MOV** y VP9/AV1 en
 Estrategia en dos niveles:
 
 1. **Ruta directa**: `<video src=clipvid://...>` servido por `register_uri_scheme_protocol` (patrón `ptpthumb`) con soporte de range requests, whitelist de rutas tipo `viewable`.
-2. **Proxy fallback**: si `<video>` emite `error` → generar proxy ligero en caché (`-vf scale=960:-2 -c:v libx264 -crf 30 -preset veryfast -c:a aac`) en background y previsualizar el proxy; **el export siempre usa el original**. La UI lo indica ("vista previa aproximada").
+2. **Proxy fallback**: si `<video>` emite `error` → generar proxy ligero en caché (`-vf scale=960:-2 -c:v h264_mf` — o el primer encoder H.264 disponible de la matriz — `-c:a aac`) en background y previsualizar el proxy; **el export siempre usa el original**. La UI lo indica ("vista previa aproximada").
 
 **Composición en vivo sin FFmpeg:** el preview compone con DOM/CSS exactamente lo que hará el filtergraph:
 - Fill/crop → `<video>` dentro de un contenedor con `overflow:hidden`, `transform: scale/translate` mapeado 1:1 a los parámetros del crop.
@@ -215,7 +211,7 @@ QueueEvent = Snapshot(Vec<ItemState>) | ItemUpdate{id, state} | Finished{summary
 | `background_modes` | Fit+Fill solamente | todos (blur, imagen) |
 | `custom_presets` | no | sí |
 | `safe_zone_export` | no | sí |
-| `advanced_quality` (crf/preset/bitrate custom, h265) | no | sí |
+| `advanced_quality` (parámetros de encoder/bitrate custom, h265) | no | sí |
 | `watermark` | sin marca de agua (Free realmente útil) | — |
 
 `JobShape{files, max_output_h, features: FeatureSet}` → `Policy::check` → `LimitViolation{kind,limit,actual}` mostrado en UI con upgrade prompt honesto. Sin licencia = Free, nunca bloqueo, nunca toca archivos. Activación: reutilizar el diseño de `src-tauri/src/license.rs` de ibs (trial opt-in + Lemon Squeezy + claves firmadas Ed25519 + gracia offline) en `cr-license` — no inventar uno nuevo.
@@ -227,7 +223,8 @@ QueueEvent = Snapshot(Vec<ItemState>) | ItemUpdate{id, state} | Finished{summary
 | # | Riesgo | Mitigación |
 |---|---|---|
 | 1 | WebView2 no reproduce MKV/HEVC/ProRes/etc. | Proxy automático en caché (§4); indicador "preview aproximada" |
-| 2 | Licencia FFmpeg en producto comercial | Build GPL como proceso separado + notices + oferta de fuente; encoders HW preferidos (§3.2); revisión legal pre-lanzamiento |
+| 2 | Licencia FFmpeg en producto comercial | Build **LGPL** (decisión validada) como proceso separado + notices + oferta de fuente; encoders HW del SO preferidos (§3.2); revisión legal pre-lanzamiento |
+| 2b | Sin x264: calidad/control de rate inferior en encoders HW | Baseline `h264_mf` universal; presets de calidad mapeados por encoder con parámetros documentados; "verificar frame real" muestra la calidad real |
 | 3 | FFmpeg huérfano tras cierre/crash | Job Object `KILL_ON_JOB_CLOSE` (patrón ptp probado) |
 | 4 | Progreso falso/engañoso | `-progress pipe:` parseado; pct = out_time/duración real; nunca interpolar |
 | 5 | Pausa solicitada en spec | No existe en FFmpeg → cancel+retry documentado, no simulado |
@@ -254,10 +251,10 @@ QueueEvent = Snapshot(Vec<ItemState>) | ItemUpdate{id, state} | Finished{summary
 
 ---
 
-## 10. Decisiones pendientes de validación
+## 10. Decisiones de validación — RESUELTAS (2026-11-04)
 
-1. ¿Navegación consolidada (Studio único) o sidebar literal del spec? (§5)
-2. ¿Build GPL de FFmpeg aceptada bajo "mere aggregation" + oferta de fuente? (§3.2) — alternativa: LGPL + solo encoders HW (peor producto).
-3. ¿Paleta/acento propios para Clip Resizer o reutilizar la identidad de ibs?
-4. ¿Marca de agua en exports Free sí/no? (propuesta: no — Free útil).
-5. ¿Nivel de concurrencia por defecto visible en Settings? (propuesta: 1, editable 1–3).
+1. **Navegación consolidada**: Studio único; Smart Crop y Background Studio son paneles del mismo `RenderSpec`. Sidebar: Dashboard · Studio · Queue · Presets · History · Settings.
+2. **FFmpeg: build LGPL** distribuido como proceso separado + notices + oferta de fuente. Estrategia de encoders por matriz de capacidad (§3.2); baseline `h264_mf` universal.
+3. **Identidad: acento propio** para Clip Resizer (tokens `--cr-*`, misma estructura que la familia).
+4. **Free sin marca de agua** en exportaciones.
+5. **Concurrencia por defecto 1 render**, configurable 1–3 en Settings (pendiente solo de implementar).

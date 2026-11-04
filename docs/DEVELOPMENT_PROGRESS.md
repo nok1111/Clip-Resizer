@@ -1,6 +1,6 @@
 # Clip Resizer — Development Progress
 
-## Fase 0 — Reference Analysis (completada, pendiente de validación)
+## Fase 0 — Reference Analysis (completada y validada)
 
 **Fecha:** 2026-11-04
 
@@ -30,6 +30,13 @@
 
 N/A — fase documental. Ningún proyecto de referencia fue modificado.
 
-### Pendiente
+### Decisiones validadas (2026-11-04)
 
-- Validación del usuario sobre `CLIP_RESIZER_ARCHITECTURE.md` (§10: 5 decisiones abiertas) antes de iniciar Fase 1.
+- Navegación: **Studio único** (Crop/Background como paneles del mismo RenderSpec).
+- FFmpeg: **build LGPL** como proceso separado; matriz de encoders por capacidad (`h264_mf` baseline universal → nvenc/qsv/amf → openh264 si el build lo trae).
+- Identidad: **acento propio** con tokens `--cr-*`.
+- Free: **sin marca de agua**.
+
+### Siguiente fase
+
+Fase 1 — Foundation (scaffold, tema/i18n, fetch-ffmpeg.ps1, scan, ffprobe, thumbnails, preview).
