@@ -1,0 +1,30 @@
+[package]
+name = "clip-resizer"
+description = "Local video resizing and social-media formatting studio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "clip_resizer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+cr-model.workspace = true
+cr-files.workspace = true
+cr-ffmpeg.workspace = true
+cr-store.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

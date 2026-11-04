@@ -14,9 +14,6 @@ src-tauri/gen/
 # Vendored third-party binaries (fetched by scripts/, never committed)
 vendor/
 
-# Generated IPC bindings
-src/lib/ipc/bindings/
-
 # Test artifacts
 coverage/
 tests/fixtures/generated/

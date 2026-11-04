@@ -40,3 +40,39 @@ N/A — fase documental. Ningún proyecto de referencia fue modificado.
 ### Siguiente fase
 
 Fase 1 — Foundation (scaffold, tema/i18n, fetch-ffmpeg.ps1, scan, ffprobe, thumbnails, preview).
+
+---
+
+## Fase 1 — Foundation (completada)
+
+**Fecha:** 2026-11-04
+
+### Implementado
+
+- Scaffold completo idéntico a la familia (Tauri 2 + React 19 + TS strict + Vite 7 + Tailwind 4 + shadcn-style + zustand + hash-router + i18n en/es/pt-BR + lucide + Inter).
+- Design tokens `--cr-*` con acento propio ámbar + temas dark/light.
+- Workspace Cargo: `cr-model` (tipos ts-rs), `cr-files` (scan), `cr-ffmpeg` (binarios/probe/thumbnail), `cr-store` (SQLite+migraciones+Settings), `src-tauri` (capa fina).
+- `scripts/fetch-ffmpeg.ps1`: FFmpeg **LGPL** n9.0.2-47-gb204e94e90 (BtbN autobuild-2026-11-04-12-51) con SHA-256 fijado `b0c31bfb...2909c`. Verificado: incluye `h264_mf`, `hevc_mf`, `libopenh264`, `libkvazaar` y todos los encoders hw.
+- `clipvid://` protocolo con **HTTP Range real** (seek en `<video>`) + whitelist `viewable`.
+- `clipthumb://` caché de miniaturas PNG.
+- Studio funcional: importar (diálogo + drag&drop nativo de Tauri), lista virtualizada con miniaturas lazy + metadatos (ffprobe batched en 4 hilos), preview `<video>` + ficha de metadatos, reveal en carpeta.
+- Dashboard con estado real de FFmpeg; Settings con tema/idioma/concurrencia/carpeta de salida/About.
+- Iconos de aplicación generados (ámbar sobre fondo oscuro).
+
+### Verificación ejecutada
+
+- `cargo test --workspace`: **28 tests ok** (scan, ffprobe-parse, protocolo range, store).
+- `cargo clippy --workspace --all-targets`: **0 warnings**.
+- `npx vitest run`: **13 tests ok** (paridad i18n, format, resolveLocale).
+- `tsc -b --noEmit`, `eslint .`, `vite build`: limpios.
+- E2E manual con binarios: h264 encode + ffprobe JSON + thumbnail = ok.
+
+### Limitaciones conocidas (Phase 1)
+
+- Preview `<video>` solo reproduce lo que WebView2 soporta (H.264/AAC ok; MKV/HEVC pueden fallar → proxy en fase posterior; la UI ya lo anuncia con `cannotPlay`).
+- Sin jobs de render todavía: StatusBar muestra importación, no progreso de render.
+- `render_history` existe como tabla pero aún no se escribe.
+
+### Siguiente fase
+
+Fase 2 — Core Video Resizer (`RenderSpec`, presets de aspecto, filtergraph fill/fit, matriz de encoders, export MP4 con progreso real, salida segura, preview del encuadre).

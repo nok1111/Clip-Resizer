@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Design tokens. Clip Resizer's own accent: warm amber (family palette
+   structure, distinct hue from Image Batch Studio's violet). */
+:root,
+.dark {
+  --cr-bg: #0e1117;
+  --cr-bg-secondary: #151a23;
+  --cr-card: #1d232f;
+  --cr-card-hover: #232b39;
+  --cr-border: #2a3342;
+  --cr-accent: #ff9a3d;
+  --cr-accent-hover: #ffab5e;
+  --cr-accent-foreground: #1a1105;
+  --cr-accent-2: #4fd1b0;
+  --cr-text: #f4f5f7;
+  --cr-text-secondary: #9299a8;
+  --cr-danger: #ff6b7a;
+  --cr-warning: #ffc062;
+  --cr-success: #4fd1b0;
+  --cr-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
+  color-scheme: dark;
+}
+
+.light {
+  --cr-bg: #f5f6f8;
+  --cr-bg-secondary: #eceef2;
+  --cr-card: #ffffff;
+  --cr-card-hover: #fbf7f2;
+  --cr-border: #dde0e7;
+  --cr-accent: #e56f1f;
+  --cr-accent-hover: #c95f14;
+  --cr-accent-foreground: #ffffff;
+  --cr-accent-2: #1fae8e;
+  --cr-text: #151821;
+  --cr-text-secondary: #5d6475;
+  --cr-danger: #d93a4b;
+  --cr-warning: #b9770e;
+  --cr-success: #1fae8e;
+  --cr-shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 8px 24px rgb(16 24 40 / 0.06);
+  color-scheme: light;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --color-bg: var(--cr-bg);
+  --color-bg-secondary: var(--cr-bg-secondary);
+  --color-card: var(--cr-card);
+  --color-card-hover: var(--cr-card-hover);
+  --color-border: var(--cr-border);
+  --color-accent: var(--cr-accent);
+  --color-accent-hover: var(--cr-accent-hover);
+  --color-accent-foreground: var(--cr-accent-foreground);
+  --color-accent-2: var(--cr-accent-2);
+  --color-text: var(--cr-text);
+  --color-text-secondary: var(--cr-text-secondary);
+  --color-danger: var(--cr-danger);
+  --color-warning: var(--cr-warning);
+  --color-success: var(--cr-success);
+  --shadow-card: var(--cr-shadow);
+  --radius-card: 14px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cr-bg);
+  color: var(--cr-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cr-border);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
