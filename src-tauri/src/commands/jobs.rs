@@ -170,7 +170,7 @@ pub fn start_render(
                     code: "panic".into(),
                     message: "render thread panicked".into(),
                 },
-                Ok(Err(e)) if cancel.load(Ordering::Relaxed) => {
+                Ok(Err(_e)) if cancel.load(Ordering::Relaxed) => {
                     let _ = std::fs::remove_file(&tmp);
                     RenderEvent::Cancelled
                 }

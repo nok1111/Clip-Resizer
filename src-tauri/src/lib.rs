@@ -28,6 +28,7 @@ pub fn run() {
                 viewable: Default::default(),
                 last_output_dir: Default::default(),
                 running_render: Default::default(),
+                queue: Default::default(),
             });
             Ok(())
         })
@@ -63,6 +64,12 @@ pub fn run() {
             commands::jobs::preview_frame,
             commands::jobs::start_render,
             commands::jobs::cancel_render,
+            commands::queue::enqueue_render,
+            commands::queue::queue_items,
+            commands::queue::queue_cancel,
+            commands::queue::queue_retry,
+            commands::queue::queue_remove,
+            commands::queue::render_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Clip Resizer");

@@ -88,6 +88,46 @@ impl Store {
         self.settings()
     }
 
+    /// Insert a finished render into history.
+    pub fn insert_render(
+        &self,
+        input: &str,
+        output: &str,
+        status: &str,
+        bytes: i64,
+        finished_at: i64,
+    ) -> Result<()> {
+        let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
+        conn.execute(
+            "INSERT INTO render_history (input, output, status, bytes, finished_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![input, output, status, bytes, finished_at],
+        )?;
+        Ok(())
+    }
+
+    /// Latest finished renders, newest first.
+    pub fn recent_renders(&self, limit: u32) -> Result<Vec<cr_model::HistoryRow>> {
+        let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
+        let mut st = conn.prepare(
+            "SELECT id, input, output, status, bytes, finished_at
+             FROM render_history ORDER BY id DESC LIMIT ?1",
+        )?;
+        let rows = st
+            .query_map([limit], |r| {
+                Ok(cr_model::HistoryRow {
+                    id: r.get(0)?,
+                    input: r.get(1)?,
+                    output: r.get(2)?,
+                    status: r.get(3)?,
+                    bytes: r.get(4)?,
+                    finished_at: r.get(5)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
     pub fn reset_settings(&self) -> Result<Settings> {
         let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
         conn.execute(

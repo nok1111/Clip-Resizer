@@ -8,8 +8,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use cr_model::{
-    AudioMode, Background, Canvas, ExportSpec, FitSpec, QualityPreset, RenderSpec, VideoCodec,
-    VideoMeta,
+    AudioMode, Background, Canvas, FitSpec, QualityPreset, RenderSpec, VideoCodec, VideoMeta,
 };
 
 use crate::{tail, FfmpegError};
@@ -364,7 +363,6 @@ pub fn run_render(
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
     let mut p = Progress::default();
-    let mut killed = false;
     loop {
         line.clear();
         match reader.read_line(&mut line) {
@@ -397,8 +395,7 @@ pub fn run_render(
             }
             Err(_) => break,
         }
-        if cancel.load(Ordering::Relaxed) && !killed {
-            killed = true;
+        if cancel.load(Ordering::Relaxed) {
             let _ = stdin.write_all(b"q\n");
             let _ = stdin.flush();
             // Grace: 'q' usually exits cleanly within a second; force-kill
@@ -572,6 +569,7 @@ pub fn resolve_output(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cr_model::ExportSpec;
 
     fn spec(fit: FitSpec, bg: Background) -> RenderSpec {
         RenderSpec {

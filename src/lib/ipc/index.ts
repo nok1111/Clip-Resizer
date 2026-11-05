@@ -8,6 +8,9 @@ import type { ConflictPolicy } from "./bindings/ConflictPolicy";
 import type { RenderEvent } from "./bindings/RenderEvent";
 import type { RenderSpec } from "./bindings/RenderSpec";
 import type { VideoCodec } from "./bindings/VideoCodec";
+import type { QueueEvent } from "./bindings/QueueEvent";
+import type { QueueItem } from "./bindings/QueueItem";
+import type { HistoryRow } from "./bindings/HistoryRow";
 
 export type { AppInfo } from "./bindings/AppInfo";
 export type { Language } from "./bindings/Language";
@@ -32,6 +35,10 @@ export type { QualityPreset } from "./bindings/QualityPreset";
 export type { RenderEvent } from "./bindings/RenderEvent";
 export type { RenderSpec } from "./bindings/RenderSpec";
 export type { VideoCodec } from "./bindings/VideoCodec";
+export type { QueueEvent } from "./bindings/QueueEvent";
+export type { QueueItem } from "./bindings/QueueItem";
+export type { QueueStatus } from "./bindings/QueueStatus";
+export type { HistoryRow } from "./bindings/HistoryRow";
 
 /** Shape of errors returned by Rust commands (see src-tauri/src/error.rs). */
 export interface CommandError {
@@ -80,4 +87,14 @@ export const ipc = {
     return invoke<void>("start_render", { spec, outputDir, conflict, onEvent: channel });
   },
   cancelRender: () => invoke<boolean>("cancel_render"),
+  enqueueRender: (specs: RenderSpec[], outputDir: string, conflict: ConflictPolicy, onEvent: (e: QueueEvent) => void) => {
+    const channel = new Channel<QueueEvent>();
+    channel.onmessage = onEvent;
+    return invoke<number[]>("enqueue_render", { specs, outputDir, conflict, onEvent: channel });
+  },
+  queueItems: () => invoke<QueueItem[]>("queue_items"),
+  queueCancel: (id: number) => invoke<boolean>("queue_cancel", { id }),
+  queueRetry: (id: number) => invoke<boolean>("queue_retry", { id }),
+  queueRemove: (id: number) => invoke<boolean>("queue_remove", { id }),
+  renderHistory: () => invoke<HistoryRow[]>("render_history"),
 };

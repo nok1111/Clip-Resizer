@@ -40,10 +40,13 @@
 - [x] Preview en vivo: segundo `<video>` blurreado o `<img>` para fondo imagen
 - [ ] Crop manual libre (drag-to-crop con máscara) → diferido: Fill con pan/zoom cubre el caso principal
 
-## Fase 4 — Batch Processing ⬜
+## Fase 4 — Batch Processing ✅
 
-- [ ] Cola (Queue), concurrencia, progreso real, cancel/retry/remove
-- [ ] render_history en SQLite + Dashboard
+- [x] Cola backend compartida (VecDeque + worker guard atómico, sin lost-wakeup)
+- [x] enqueue_render por Channel (~10Hz/item), progreso real, cancel (pending+running), retry, remove
+- [x] Queue page real: lista con %, badges de estado, reveal, retry/remove
+- [x] Studio "Queue all" → encola todos los items listos con el spec actual
+- [x] render_history SQLite escrita por item terminado + comando render_history
 
 ## Fase 5 — Safe Zones + Export avanzado ⬜
 

@@ -16,4 +16,6 @@ pub struct AppState {
     pub last_output_dir: Mutex<Option<PathBuf>>,
     /// Cancel token of the running render; one render at a time for now.
     pub running_render: Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
+    /// Render queue (Phase 4): shared entries + worker guard.
+    pub queue: std::sync::Arc<crate::commands::queue::QueueState>,
 }

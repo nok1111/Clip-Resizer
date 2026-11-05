@@ -170,5 +170,22 @@
     "cancelled": "Render cancelado",
     "skipped": "Omitido — la salida ya existe",
     "done": "Hecho — {{bytes}} escritos"
+  },
+  "queue": {
+    "empty": "Sin renders en cola",
+    "emptyHint": "{{count}} vídeo(s) listos en Studio — pulsa Encolar todo",
+    "emptyNoVideos": "Importa vídeos en Studio primero",
+    "enqueueAll": "Encolar todo ({{count}})",
+    "running": "{{pending}} pendientes",
+    "retry": "Reintentar",
+    "remove": "Quitar",
+    "status": {
+      "pending": "Pendiente",
+      "processing": "Procesando",
+      "done": "Hecho",
+      "failed": "Fallido",
+      "cancelled": "Cancelado",
+      "skipped": "Omitido"
+    }
   }
 }

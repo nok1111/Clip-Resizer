@@ -298,3 +298,57 @@ pub enum RenderEvent {
     /// Target name existed and conflict policy was Skip.
     Skipped,
 }
+
+// ── Render queue (Phase 4) ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum QueueStatus {
+    Pending,
+    Processing,
+    Done,
+    Failed,
+    Cancelled,
+    Skipped,
+}
+
+/// One queued render as shown in the Queue UI.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct QueueItem {
+    pub id: u32,
+    pub name: String,
+    pub status: QueueStatus,
+    /// 0-100 when Processing.
+    pub pct: f64,
+    pub out_path: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Queue snapshot + updates streamed to the UI.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[ts(export)]
+pub enum QueueEvent {
+    /// Full snapshot (sent on subscribe and after structural changes).
+    Snapshot { items: Vec<QueueItem> },
+    /// One item changed (progress or status).
+    Item { item: QueueItem },
+}
+
+/// A finished render record (render_history).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HistoryRow {
+    pub id: i64,
+    pub input: String,
+    pub output: String,
+    pub status: String,
+    #[ts(type = "number")]
+    pub bytes: i64,
+    #[ts(type = "number")]
+    pub finished_at: i64,
+}

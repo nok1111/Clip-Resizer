@@ -113,3 +113,18 @@ Fase 3 — Background Studio completo (imagen de fondo, crop manual con máscara
 ### Siguiente fase
 
 Fase 4 — Batch Processing (cola, concurrencia, progreso por item, cancel/retry, historial).
+---
+
+## Fase 4 — Batch Processing (completada)
+
+**Fecha:** 2026-11-04
+
+- `commands/queue.rs`: cola compartida con worker único guardiado por AtomicBool (toque bajo el mismo lock → sin lost-wakeup), ids u32, retry respawnea worker.
+- Eventos `QueueEvent` (Snapshot/Item) por Channel a ~10 Hz; cancel coopera en pending y running; temp→verify→rename por item; history escrita en SQLite.
+- UI: Queue page (badge de estado, barra de progreso, reveal/retry/remove), botón "Queue all" en Studio que encola todos los listos con el spec actual.
+- Concurrencia fija a 1 worker de momento (honesto: la exportación ya usa ffmpeg externo; el campo settings.concurrent_renders se reservará para fase posterior con N workers).
+- Verificación: 47 cargo tests + 13 vitest + typecheck/lint/build/clippy limpios.
+
+### Siguiente fase
+
+Fase 5 — Safe Zones + Export avanzado (guías overlay, presets custom, fps/bitrate/H.265, Policy Free/Pro).

@@ -122,6 +122,8 @@ interface StudioState {
   startRender: (conflict?: ConflictPolicy) => Promise<void>;
   cancelRender: () => Promise<void>;
   verifyFrame: (tS: number) => Promise<void>;
+  /** Queue every ready item with the current spec (batch Phase 4). */
+  enqueueAll: () => Promise<void>;
 }
 
 export const useStudioStore = create<StudioState>((set, get) => ({
@@ -283,6 +285,26 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     try {
       const t = await ipc.previewFrame(buildRenderSpec(item.path, s.spec), tS);
       set({ previewFrameUrl: `${t.url}?v=${Date.now()}` });
+    } catch (e) {
+      set({ render: { ...get().render, error: errorMessage(e) } });
+    }
+  },
+
+  enqueueAll: async () => {
+    const s = get();
+    const ready = s.items.filter((i) => i.status === "ready");
+    if (ready.length === 0) return;
+    const dir =
+      (await ipc.getSettings()).defaultOutputDir ?? (await ipc.pickOutputDir()) ?? undefined;
+    if (!dir) return;
+    const { useQueueStore } = await import("@/stores/queue");
+    try {
+      await ipc.enqueueRender(
+        ready.map((i) => buildRenderSpec(i.path, s.spec)),
+        dir,
+        "rename",
+        (e) => useQueueStore.getState().apply(e),
+      );
     } catch (e) {
       set({ render: { ...get().render, error: errorMessage(e) } });
     }

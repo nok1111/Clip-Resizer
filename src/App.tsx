@@ -6,6 +6,7 @@ import { TOOL_MODULES } from "@/app/modules";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { ModulePage } from "@/features/modules/ModulePage";
+import { QueuePage } from "@/features/queue/QueuePage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { resolveLocale } from "@/i18n";
 import { useSettingsStore } from "@/stores/settings";
@@ -16,7 +17,10 @@ const router = createHashRouter([
     element: <AppLayout />,
     children: [
       { index: true, element: <DashboardPage /> },
-      ...TOOL_MODULES.map((m) => ({ path: m.path.slice(1), element: <ModulePage id={m.id} /> })),
+      ...TOOL_MODULES.map((m) => ({
+        path: m.path.slice(1),
+        element: m.id === "queue" ? <QueuePage /> : <ModulePage id={m.id} />,
+      })),
       { path: "settings", element: <SettingsPage /> },
     ],
   },
