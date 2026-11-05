@@ -76,3 +76,27 @@ Fase 1 — Foundation (scaffold, tema/i18n, fetch-ffmpeg.ps1, scan, ffprobe, thu
 ### Siguiente fase
 
 Fase 2 — Core Video Resizer (`RenderSpec`, presets de aspecto, filtergraph fill/fit, matriz de encoders, export MP4 con progreso real, salida segura, preview del encuadre).
+
+---
+
+## Fase 2 — Core Video Resizer (completada)
+
+**Fecha:** 2026-11-04
+
+### Implementado
+
+- `RenderSpec` único (canvas / FitSpec{Fill{offset,zoom} | Fit} / Background{Solid|Blur} / ExportSpec{codec,quality,fps,audio}) → un comando FFmpeg determinista.
+- Filtergraph builder con 7 tests dorados. Nota: `eq` es filtro **GPL-only** — se reemplazó por `lutyuv` para oscurecer el fondo blur (verificado contra el build LGPL vendored).
+- Matriz de encoders: nvenc→qsv→amf→h264_mf→libopenh264 (h264) / …→hevc_mf→libkvazaar (hevc). Calidad: nvenc -cq; resto CBR por bpp.
+- `run_render`: `-progress pipe:1` real → eventos ~10 Hz via Channel (patrón ibs forward_batched); cancel `q`→kill 2s; Job Object (kill-on-close + 4GiB cap).
+- Salida segura: `*.clipresizer-tmp` → verify_output (ffprobe: geometría exacta + duración ±5%/1.5s) → rename atómico; política rename/skip/overwrite; nunca sobreescribe el input.
+- UI Studio: presets visuales de aspecto + custom, panel Framing (fill: zoom+pan sliders; fit: solid color/blur sigma+dim), panel Export (codec/quality/fps/audio + encoder resuelto honesto), preview compuesto CSS fiel al grafo + botón verify que renderiza 1 frame real.
+- E2E verificado: 1920×1080@30 h264 → 1080×1920 blur-fit, h264_mf, yuv420p, faststart.
+
+### Verificación
+
+- 47 cargo tests, 13 vitest, clippy 0 warnings, tsc/eslint/vite build limpios.
+
+### Siguiente fase
+
+Fase 3 — Background Studio completo (imagen de fondo, crop manual con máscara, separación visual).

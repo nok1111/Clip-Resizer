@@ -74,7 +74,33 @@
     "statusReady": "Listo",
     "statusProbing": "Leyendo…",
     "statusError": "Ilegible",
-    "exportSoon": "La selección de formato y la exportación llegan en la Fase 2."
+    "exportSoon": "La selección de formato y la exportación llegan en la Fase 2.",
+    "format": "Formato",
+    "custom": "Personalizado",
+    "width": "Ancho",
+    "height": "Alto",
+    "framing": "Encuadre",
+    "fitMode": "Ajustar",
+    "fillMode": "Rellenar",
+    "zoom": "Zoom",
+    "offsetX": "Desp. X",
+    "offsetY": "Desp. Y",
+    "background": "Fondo",
+    "bgBlur": "Desenfoque",
+    "bgSolid": "Sólido",
+    "bgColor": "Color",
+    "blurSigma": "Desenfoque",
+    "blurDim": "Oscurecer",
+    "export": "Exportar",
+    "quality": "Calidad",
+    "qFast": "Rápido",
+    "qBalanced": "Equilibrado",
+    "qHigh": "Alta calidad",
+    "fpsOut": "FPS",
+    "fpsKeep": "Mantener original",
+    "audioCopy": "Copiar",
+    "audioRemove": "Quitar",
+    "encoder": "Codificador: {{name}}"
   },
   "settings": {
     "title": "Ajustes",
@@ -131,5 +157,12 @@
   },
   "compare": {
     "open": "Comparar {{name}}"
+  },
+  "render": {
+    "export": "Exportar",
+    "cancel": "Cancelar",
+    "cancelled": "Render cancelado",
+    "skipped": "Omitido — la salida ya existe",
+    "done": "Hecho — {{bytes}} escritos"
   }
 }

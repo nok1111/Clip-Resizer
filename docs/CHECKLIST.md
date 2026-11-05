@@ -21,15 +21,17 @@
 - [x] Dashboard con estado real de FFmpeg
 - [x] Tests: 28 cargo tests + 13 vitest — todo verde; clippy -D warnings limpio; tsc + eslint + vite build limpios
 
-## Fase 2 — Core Video Resizer ⬜
+## Fase 2 — Core Video Resizer ✅
 
-- [ ] `RenderSpec` en cr-model (canvas, fit fill/fit, export)
-- [ ] Presets de aspecto (9:16, 1:1, 4:5, 16:9, 4:3, 3:4, custom)
-- [ ] Filtergraph builder fill/fit + tests dorados
-- [ ] Matriz de encoders por capacidad (h264_mf→hw→openh264)
-- [ ] Export MP4 con progreso real (`-progress pipe:`)
-- [ ] Salida segura temp→verificar→rename
-- [ ] Preview CSS del encuadre + "verificar frame real"
+- [x] `RenderSpec` en cr-model (canvas, FitSpec fill{offset,zoom}/fit, Background solid/blur, ExportSpec)
+- [x] Presets de aspecto (9:16, 1:1, 4:5, 16:9, 4:3, 3:4, custom) con selector visual
+- [x] Filtergraph builder fill/fit + 7 tests dorados; `eq`→`lutyuv` (eq es GPL-only)
+- [x] Matriz de encoders por capacidad (nvenc→qsv→amf→mf→openh264/kvazaar)
+- [x] Export MP4 con progreso real (`-progress pipe:1` ~10Hz), speed, tamaño
+- [x] Salida segura tmp→verificar(ffprobe geom+duración)→rename atómico; conflict rename/skip/overwrite; nunca sobreescribe el input
+- [x] Job Object (kill-on-close + cap 4GiB); cancel `q`+kill
+- [x] Preview compuesto CSS (fill pan/zoom, fit solid, fit blur) + botón verify → frame real vía ffmpeg
+- [x] E2E real: 1920x1080 → 1080x1920 blur-fit h264_mf yuv420p
 
 ## Fase 3 — Background Studio ⬜
 

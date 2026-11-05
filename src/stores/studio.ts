@@ -1,5 +1,78 @@
 import { create } from "zustand";
-import { errorMessage, ipc, type VideoMeta } from "@/lib/ipc";
+import {
+  errorMessage,
+  ipc,
+  type AspectPreset,
+  type Background,
+  type Canvas,
+  type ConflictPolicy,
+  type ExportSpec,
+  type FitSpec,
+  type RenderSpec,
+  type VideoCodec,
+  type VideoMeta,
+} from "@/lib/ipc";
+
+export interface StudioSpec {
+  preset: AspectPreset;
+  custom: Canvas;
+  fit: FitSpec;
+  background: Background;
+  export: ExportSpec;
+}
+
+export const ASPECT_CANVAS: Record<Exclude<AspectPreset, "custom">, Canvas> = {
+  "9:16": { width: 1080, height: 1920 },
+  "1:1": { width: 1080, height: 1080 },
+  "4:5": { width: 1080, height: 1350 },
+  "16:9": { width: 1920, height: 1080 },
+  "4:3": { width: 1440, height: 1080 },
+  "3:4": { width: 1080, height: 1440 },
+};
+
+export const DEFAULT_SPEC: StudioSpec = {
+  preset: "9:16",
+  custom: { width: 1080, height: 1920 },
+  fit: { kind: "fit" },
+  background: { kind: "blur", sigma: 20, dim: 0.35 },
+  export: { codec: "h264", quality: "balanced", fps: null, audio: "copy" },
+};
+
+export function specCanvas(s: StudioSpec): Canvas {
+  return s.preset === "custom" ? s.custom : ASPECT_CANVAS[s.preset];
+}
+
+export function buildRenderSpec(input: string, s: StudioSpec): RenderSpec {
+  return {
+    input,
+    canvas: specCanvas(s),
+    fit: s.fit,
+    background: s.background,
+    export: s.export,
+  };
+}
+
+export interface RenderState {
+  running: boolean;
+  pct: number;
+  speed: number;
+  donePath: string | null;
+  doneBytes: number;
+  error: string | null;
+  cancelled: boolean;
+  skipped: boolean;
+}
+
+const idleRender: RenderState = {
+  running: false,
+  pct: 0,
+  speed: 0,
+  donePath: null,
+  doneBytes: 0,
+  error: null,
+  cancelled: false,
+  skipped: false,
+};
 
 export type ItemStatus = "probing" | "ready" | "error";
 
@@ -35,6 +108,14 @@ interface StudioState {
   select: (path: string | null) => void;
   /** Lazily renders a thumbnail for one item (called by visible rows). */
   ensureThumb: (path: string) => Promise<void>;
+  spec: StudioSpec;
+  setSpec: (patch: Partial<StudioSpec>) => void;
+  render: RenderState;
+  encoderName: string | null;
+  previewFrameUrl: string | null;
+  startRender: (conflict?: ConflictPolicy) => Promise<void>;
+  cancelRender: () => Promise<void>;
+  verifyFrame: (tS: number) => Promise<void>;
 }
 
 export const useStudioStore = create<StudioState>((set, get) => ({
@@ -137,6 +218,67 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const req = { ...get().thumbRequests };
       delete req[path];
       set({ thumbRequests: req });
+    }
+  },
+
+  spec: DEFAULT_SPEC,
+  setSpec: (patch) => {
+    set({ spec: { ...get().spec, ...patch }, previewFrameUrl: null });
+    // Keep the honest encoder name in sync with the codec choice.
+    const codec: VideoCodec = (patch.export?.codec ?? get().spec.export.codec) as VideoCodec;
+    void ipc
+      .resolveEncoder(codec)
+      .then((e) => set({ encoderName: e }))
+      .catch(() => set({ encoderName: null }));
+  },
+  render: idleRender,
+  encoderName: null,
+  previewFrameUrl: null,
+
+  startRender: async (conflict = "rename") => {
+    const s = get();
+    const item = s.items.find((i) => i.path === s.selected && i.status === "ready");
+    if (!item || s.render.running) return;
+    const dir =
+      (await ipc.getSettings()).defaultOutputDir ?? (await ipc.pickOutputDir()) ?? undefined;
+    if (!dir) return;
+    set({ render: { ...idleRender, running: true } });
+    try {
+      await ipc.startRender(buildRenderSpec(item.path, s.spec), dir, conflict, (e) => {
+        if (e.kind === "progress") {
+          set({ render: { ...get().render, pct: e.pct, speed: e.speed } });
+        } else if (e.kind === "done") {
+          set({ render: { ...idleRender, donePath: e.path, doneBytes: e.bytes } });
+        } else if (e.kind === "failed") {
+          set({ render: { ...idleRender, error: e.message } });
+        } else if (e.kind === "cancelled") {
+          set({ render: { ...idleRender, cancelled: true } });
+        } else if (e.kind === "skipped") {
+          set({ render: { ...idleRender, skipped: true } });
+        }
+      });
+    } catch (err) {
+      set({ render: { ...idleRender, error: errorMessage(err) } });
+    }
+  },
+
+  cancelRender: async () => {
+    try {
+      await ipc.cancelRender();
+    } catch {
+      /* no render running */
+    }
+  },
+
+  verifyFrame: async (tS) => {
+    const s = get();
+    const item = s.items.find((i) => i.path === s.selected && i.status === "ready");
+    if (!item) return;
+    try {
+      const t = await ipc.previewFrame(buildRenderSpec(item.path, s.spec), tS);
+      set({ previewFrameUrl: `${t.url}?v=${Date.now()}` });
+    } catch (e) {
+      set({ render: { ...get().render, error: errorMessage(e) } });
     }
   },
 }));

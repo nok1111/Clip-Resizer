@@ -14,4 +14,6 @@ pub struct AppState {
     pub viewable: Mutex<HashSet<PathBuf>>,
     /// Output folder of the latest batch (for the status bar button).
     pub last_output_dir: Mutex<Option<PathBuf>>,
+    /// Cancel token of the running render; one render at a time for now.
+    pub running_render: Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
 }

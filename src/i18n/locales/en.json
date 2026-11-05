@@ -74,7 +74,33 @@
     "statusReady": "Ready",
     "statusProbing": "Reading…",
     "statusError": "Unreadable",
-    "exportSoon": "Format selection and export arrive in Phase 2."
+    "exportSoon": "Format selection and export arrive in Phase 2.",
+    "format": "Format",
+    "custom": "Custom",
+    "width": "Width",
+    "height": "Height",
+    "framing": "Framing",
+    "fitMode": "Fit",
+    "fillMode": "Fill",
+    "zoom": "Zoom",
+    "offsetX": "Pan X",
+    "offsetY": "Pan Y",
+    "background": "Background",
+    "bgBlur": "Blur",
+    "bgSolid": "Solid",
+    "bgColor": "Color",
+    "blurSigma": "Blur",
+    "blurDim": "Dim",
+    "export": "Export",
+    "quality": "Quality",
+    "qFast": "Fast",
+    "qBalanced": "Balanced",
+    "qHigh": "High quality",
+    "fpsOut": "FPS",
+    "fpsKeep": "Keep original",
+    "audioCopy": "Copy",
+    "audioRemove": "Remove",
+    "encoder": "Encoder: {{name}}"
   },
   "settings": {
     "title": "Settings",
@@ -131,5 +157,12 @@
   },
   "compare": {
     "open": "Compare {{name}}"
+  },
+  "render": {
+    "export": "Export",
+    "cancel": "Cancel",
+    "cancelled": "Render cancelled",
+    "skipped": "Skipped — output already exists",
+    "done": "Done — {{bytes}} written"
   }
 }

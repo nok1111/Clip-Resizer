@@ -1,5 +1,6 @@
 mod commands;
 mod error;
+mod job_object;
 mod mediaproto;
 mod state;
 mod thumbnails;
@@ -26,6 +27,7 @@ pub fn run() {
                 thumbs_dir,
                 viewable: Default::default(),
                 last_output_dir: Default::default(),
+                running_render: Default::default(),
             });
             Ok(())
         })
@@ -56,6 +58,11 @@ pub fn run() {
             commands::media::video_thumbnail,
             commands::media::reveal_path,
             commands::media::pick_output_dir,
+            commands::jobs::list_encoders,
+            commands::jobs::resolve_encoder,
+            commands::jobs::preview_frame,
+            commands::jobs::start_render,
+            commands::jobs::cancel_render,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Clip Resizer");

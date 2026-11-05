@@ -142,3 +142,153 @@ pub struct ThumbInfo {
     pub height: u32,
     pub cached: bool,
 }
+
+// ── Render model (one RenderSpec → one deterministic FFmpeg command) ────────
+
+/// Output canvas in pixels (even numbers; encoders require it).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Canvas {
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Named canvas presets shown in the UI; `custom` uses user dimensions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum AspectPreset {
+    #[serde(rename = "9:16")]
+    A9x16,
+    #[serde(rename = "1:1")]
+    A1x1,
+    #[serde(rename = "4:5")]
+    A4x5,
+    #[serde(rename = "16:9")]
+    A16x9,
+    #[serde(rename = "4:3")]
+    A4x3,
+    #[serde(rename = "3:4")]
+    A3x4,
+    Custom,
+}
+
+/// How the source maps onto the canvas.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[ts(export)]
+pub enum FitSpec {
+    /// Cover the canvas; offset/zoom position the visible window.
+    /// offsets are -1..1 of the crop slack; zoom >= 1 multiplies the cover scale.
+    Fill {
+        offset_x: f64,
+        offset_y: f64,
+        zoom: f64,
+    },
+    /// Fit whole frame inside the canvas (letterbox via `background`).
+    Fit,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[ts(export)]
+pub enum Background {
+    /// Letterbox bars in a solid "#rrggbb" color.
+    Solid { color: String },
+    /// Enlarged blurred copy of the video behind the fitted frame.
+    Blur { sigma: f64, dim: f64 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum VideoCodec {
+    H264,
+    H265,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum QualityPreset {
+    Fast,
+    Balanced,
+    High,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum AudioMode {
+    /// Copy the source audio stream when the MP4 accepts it.
+    Copy,
+    /// Re-encode to AAC 192k.
+    Aac,
+    /// Strip audio.
+    Remove,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ExportSpec {
+    pub codec: VideoCodec,
+    pub quality: QualityPreset,
+    /// Target fps; None = keep source.
+    pub fps: Option<f64>,
+    pub audio: AudioMode,
+}
+
+/// Everything needed to render one video → one FFmpeg command.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct RenderSpec {
+    pub input: String,
+    pub canvas: Canvas,
+    pub fit: FitSpec,
+    pub background: Background,
+    pub export: ExportSpec,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum ConflictPolicy {
+    /// Write `name (2).mp4` when the target exists.
+    #[default]
+    Rename,
+    /// Skip the render when the target exists.
+    Skip,
+    /// Overwrite an existing output (never an input).
+    Overwrite,
+}
+
+/// Progress/events streamed to the UI during a render.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[ts(export)]
+pub enum RenderEvent {
+    Progress {
+        pct: f64,
+        /// Processed output timestamp, seconds.
+        out_s: f64,
+        /// ffmpeg `speed=` factor (e.g. 2.5 = 2.5× realtime).
+        speed: f64,
+        /// Bytes written so far.
+        size: u64,
+    },
+    Done {
+        path: String,
+        #[ts(type = "number")]
+        bytes: u64,
+    },
+    Failed {
+        code: String,
+        message: String,
+    },
+    Cancelled,
+    /// Target name existed and conflict policy was Skip.
+    Skipped,
+}

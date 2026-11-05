@@ -7,6 +7,8 @@ use std::process::Command;
 
 use cr_model::{ProbeError, ProbeResult, VideoMeta};
 
+pub mod render;
+
 #[derive(Debug, thiserror::Error)]
 pub enum FfmpegError {
     #[error("ffmpeg/ffprobe binaries not found — run scripts/fetch-ffmpeg.ps1")]
@@ -192,7 +194,7 @@ fn probe_inner(path: &Path) -> Result<VideoMeta, FfmpegError> {
     parse_probe(&v).map_err(FfmpegError::Parse)
 }
 
-fn tail(stderr: &[u8]) -> String {
+pub(crate) fn tail(stderr: &[u8]) -> String {
     let s = String::from_utf8_lossy(stderr);
     s.lines()
         .rev()

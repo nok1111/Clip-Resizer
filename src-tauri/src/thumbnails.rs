@@ -9,6 +9,24 @@ use sha2::{Digest, Sha256};
 
 use crate::error::{CommandError, CommandResult};
 
+/// Cache key from an arbitrary seed (frame previews carry spec params).
+pub fn named_key(path: &Path, seed: &str) -> CommandResult<String> {
+    let meta = path
+        .metadata()
+        .map_err(|e| CommandError::new("io", format!("stat {}: {e}", path.display())))?;
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let hex = format!(
+        "{:x}",
+        Sha256::digest(format!("{}|{}|{mtime}|{seed}", path.display(), meta.len()).as_bytes())
+    );
+    Ok(format!("{}.png", &hex[..24]))
+}
+
 fn key(path: &Path, seek_s: f64, target: u32) -> CommandResult<String> {
     let meta = path
         .metadata()

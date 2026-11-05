@@ -1,9 +1,13 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 import type { AppInfo } from "./bindings/AppInfo";
 import type { ProbeResult } from "./bindings/ProbeResult";
 import type { ScanResult } from "./bindings/ScanResult";
 import type { Settings } from "./bindings/Settings";
 import type { ThumbInfo } from "./bindings/ThumbInfo";
+import type { ConflictPolicy } from "./bindings/ConflictPolicy";
+import type { RenderEvent } from "./bindings/RenderEvent";
+import type { RenderSpec } from "./bindings/RenderSpec";
+import type { VideoCodec } from "./bindings/VideoCodec";
 
 export type { AppInfo } from "./bindings/AppInfo";
 export type { Language } from "./bindings/Language";
@@ -17,6 +21,17 @@ export type { Settings } from "./bindings/Settings";
 export type { Theme } from "./bindings/Theme";
 export type { ThumbInfo } from "./bindings/ThumbInfo";
 export type { VideoMeta } from "./bindings/VideoMeta";
+export type { AspectPreset } from "./bindings/AspectPreset";
+export type { AudioMode } from "./bindings/AudioMode";
+export type { Background } from "./bindings/Background";
+export type { Canvas } from "./bindings/Canvas";
+export type { ConflictPolicy } from "./bindings/ConflictPolicy";
+export type { ExportSpec } from "./bindings/ExportSpec";
+export type { FitSpec } from "./bindings/FitSpec";
+export type { QualityPreset } from "./bindings/QualityPreset";
+export type { RenderEvent } from "./bindings/RenderEvent";
+export type { RenderSpec } from "./bindings/RenderSpec";
+export type { VideoCodec } from "./bindings/VideoCodec";
 
 /** Shape of errors returned by Rust commands (see src-tauri/src/error.rs). */
 export interface CommandError {
@@ -55,4 +70,14 @@ export const ipc = {
     }),
   revealPath: (path: string) => invoke<void>("reveal_path", { path }),
   pickOutputDir: () => invoke<string | null>("pick_output_dir"),
+  listEncoders: () => invoke<string[]>("list_encoders"),
+  resolveEncoder: (codec: VideoCodec) => invoke<string | null>("resolve_encoder", { codec }),
+  previewFrame: (spec: RenderSpec, tS: number) =>
+    invoke<ThumbInfo>("preview_frame", { spec, tS }),
+  startRender: (spec: RenderSpec, outputDir: string, conflict: ConflictPolicy, onEvent: (e: RenderEvent) => void) => {
+    const channel = new Channel<RenderEvent>();
+    channel.onmessage = onEvent;
+    return invoke<void>("start_render", { spec, outputDir, conflict, onEvent: channel });
+  },
+  cancelRender: () => invoke<boolean>("cancel_render"),
 };
