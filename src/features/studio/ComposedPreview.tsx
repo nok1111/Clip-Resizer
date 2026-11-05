@@ -60,8 +60,10 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
           width: `${wPct}%`,
           aspectRatio: vidRatio,
           height: "auto",
-          left: `${50 + spec.fit.offset_x * slackX}%`,
-          top: `${50 + spec.fit.offset_y * slackY}%`,
+          // Sign must match the FFmpeg crop: positive offset pans the
+          // visible window toward the right/bottom of the source.
+          left: `${50 - spec.fit.offset_x * slackX}%`,
+          top: `${50 - spec.fit.offset_y * slackY}%`,
           transform: "translate(-50%,-50%)",
         },
       };
