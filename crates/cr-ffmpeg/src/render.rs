@@ -104,26 +104,54 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
                 signed_mul(clamp01(offset_y), &format!("(ih-{h})/2")),
             ));
         }
-        FitSpec::Fit => match &spec.background {
-            Background::Solid { color } => {
-                v.push_str(&format!(
-                    "scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos,\
-                     pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:{color}"
-                ));
+        FitSpec::Fit => {
+            // Foreground box: canvas minus margin (each side), keeping aspect.
+            let m = spec.margin.clamp(0.0, 0.4);
+            let (bw, border) = &spec.border;
+            // Foreground box = canvas minus margin per side (even dims).
+            let iw2 = ((w as f64 * (1.0 - 2.0 * m)) as u32) & !1;
+            let ih2 = ((h as f64 * (1.0 - 2.0 * m)) as u32) & !1;
+            let inner = format!("{iw2}:{ih2}");
+            let borderpad = if *bw > 0.0 {
+                format!(",pad=iw+{b}:ih+{b}:(ow-iw)/2:(oh-ih)/2:{border}", b = (2.0 * *bw) as i32)
+            } else {
+                String::new()
+            };
+            let fgscale = |tag: &str| {
+                format!("scale={inner}:force_original_aspect_ratio=decrease:flags=lanczos{borderpad}{tag}")
+            };
+            match &spec.background {
+                Background::Solid { color } => {
+                    v.push_str(&format!(
+                        "{fg},pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:{color}",
+                        fg = fgscale(""),
+                    ));
+                }
+                Background::Blur { sigma, dim } => {
+                    let lum = 1.0 - dim.clamp(0.0, 0.95);
+                    // lutyuv replaces eq (GPL-only filter, absent in LGPL builds)
+                    v.push_str(&format!(
+                        "split[fg][bg];\
+                         [bg]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
+                         crop={w}:{h},gblur=sigma={sigma},lutyuv=y='val*{lum}'[bg2];\
+                         [fg]{fg}[fg2];\
+                         [bg2][fg2]overlay=(W-w)/2:(H-h)/2",
+                        fg = fgscale(""),
+                    ));
+                }
+                Background::Image { blur, .. } => {
+                    // Input 1 is the still; loop it as a video stream.
+                    let gb = if *blur > 0.0 { format!(",gblur=sigma={blur}") } else { String::new() };
+                    v.push_str(&format!(
+                        "[1:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
+                         crop={w}:{h}{gb}[bg2];\
+                         [0:v]{fg}[fg2];\
+                         [bg2][fg2]overlay=(W-w)/2:(H-h)/2",
+                        fg = fgscale(""),
+                    ));
+                }
             }
-            Background::Blur { sigma, dim } => {
-                // lutyuv dims the background; `eq` is a GPL-only filter and is
-                // absent from the vendored LGPL build.
-                let lum = 1.0 - dim.clamp(0.0, 0.95);
-                v.push_str(&format!(
-                    "split[fg][bg];\
-                     [bg]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
-                     crop={w}:{h},gblur=sigma={sigma},lutyuv=y='val*{lum}'[bg2];\
-                     [fg]scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos[fg2];\
-                     [bg2][fg2]overlay=(W-w)/2:(H-h)/2"
-                ));
-            }
-        },
+        }
     }
     let _ = (src_w, src_h); // geometry is computed by ffmpeg expressions
     // No fps filter when keeping the source rate — it would be a no-op
@@ -221,9 +249,17 @@ pub fn build_args(
         "-y".into(),
         "-i".into(),
         spec.input.clone(),
+    ];
+    // Second input: the background still (looped for the whole duration).
+    if let FitSpec::Fit = spec.fit {
+        if let Background::Image { path, .. } = &spec.background {
+            args.extend(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
+        }
+    }
+    args.extend([
         "-filter_complex".into(),
         filtergraph(spec, meta.width, meta.height),
-    ];
+    ]);
     let fps = spec.export.fps.unwrap_or(meta.fps);
     args.extend(encoder_args(encoder, spec, fps));
     match spec.export.audio {
@@ -449,21 +485,29 @@ pub fn preview_frame(
     t_s: f64,
     out: &Path,
 ) -> Result<(), FfmpegError> {
-    let status = Command::new(crate::ffmpeg()?)
-        .args([
-            "-hide_banner".into(),
-            "-loglevel".into(),
-            "error".into(),
-            "-ss".into(),
-            format!("{t_s:.3}"),
-            "-i".into(),
-            spec.input.clone(),
-            "-filter_complex".into(),
-            filtergraph(spec, meta.width, meta.height),
-            "-frames:v".into(),
-            "1".into(),
-            "-y".into(),
-        ])
+    let mut cmd = Command::new(crate::ffmpeg()?);
+    cmd.args([
+        "-hide_banner".into(),
+        "-loglevel".into(),
+        "error".into(),
+        "-ss".into(),
+        format!("{t_s:.3}"),
+        "-i".into(),
+        spec.input.clone(),
+    ]);
+    if let FitSpec::Fit = spec.fit {
+        if let Background::Image { path, .. } = &spec.background {
+            cmd.args(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
+        }
+    }
+    cmd.args([
+        "-filter_complex".into(),
+        filtergraph(spec, meta.width, meta.height),
+        "-frames:v".into(),
+        "1".into(),
+        "-y".into(),
+    ]);
+    let status = cmd
         .arg(out)
         .output()
         .map_err(|e| FfmpegError::Spawn {
@@ -538,6 +582,8 @@ mod tests {
             },
             fit,
             background: bg,
+            margin: 0.0,
+            border: (0.0, "#ffffff".into()),
             export: ExportSpec {
                 codec: VideoCodec::H264,
                 quality: QualityPreset::Balanced,

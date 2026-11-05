@@ -198,6 +198,8 @@ pub enum Background {
     Solid { color: String },
     /// Enlarged blurred copy of the video behind the fitted frame.
     Blur { sigma: f64, dim: f64 },
+    /// Imported still image; `blur` optionally softens it (0 = off).
+    Image { path: String, blur: f64 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -249,6 +251,10 @@ pub struct RenderSpec {
     pub canvas: Canvas,
     pub fit: FitSpec,
     pub background: Background,
+    /// Foreground inset 0..0.4 of the canvas short side (visual separation).
+    pub margin: f64,
+    /// Foreground border in px; 0 = none. With `#rrggbb` color.
+    pub border: (f64, String),
     pub export: ExportSpec,
 }
 

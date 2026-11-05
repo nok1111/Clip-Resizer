@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { videoUrl } from "@/lib/ipc";
 import { specCanvas, useStudioStore, type StudioItem } from "@/stores/studio";
 
@@ -39,6 +40,9 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
     }
     const wPct = (meta.width * fit * 100) / canvas.width;
     const hPct = (meta.height * fit * 100) / canvas.height;
+    // margin shrinks the fg box relative to the canvas (mirrors filtergraph).
+    const shrink = 1 - 2 * spec.margin;
+    const bPx = (spec.border[0] / canvas.height) * 100;
     return {
       bg:
         spec.background.kind === "blur"
@@ -49,12 +53,19 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               transform: "translate(-50%,-50%) scale(1.1)",
             }
           : null,
+      imageUrl:
+        spec.background.kind === "image" && spec.background.path
+          ? convertFileSrc(spec.background.path)
+          : null,
+      imageBlur: spec.background.kind === "image" ? spec.background.blur / 2 : 0,
       fg: {
-        width: `${wPct}%`,
-        height: `${hPct}%`,
+        width: `${wPct * shrink}%`,
+        height: `${hPct * shrink}%`,
         left: "50%",
         top: "50%",
         transform: "translate(-50%,-50%)",
+        boxSizing: "border-box" as const,
+        border: spec.border[0] > 0 ? `${bPx}cqh solid ${spec.border[1]}` : undefined,
       },
       solid: spec.background.kind === "solid" ? spec.background.color : undefined,
     };
@@ -74,6 +85,15 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
             background: layers.solid ?? "#000",
           }}
         >
+          {layers.imageUrl && (
+            <img
+              src={layers.imageUrl}
+              alt=""
+              className="absolute size-full object-cover"
+              style={{ filter: layers.imageBlur ? `blur(${layers.imageBlur}px)` : undefined }}
+              draggable={false}
+            />
+          )}
           {layers.bg && (
             <video
               key={`bg-${item.path}`}

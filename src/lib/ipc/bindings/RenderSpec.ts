@@ -7,4 +7,12 @@ import type { FitSpec } from "./FitSpec";
 /**
  * Everything needed to render one video → one FFmpeg command.
  */
-export type RenderSpec = { input: string, canvas: Canvas, fit: FitSpec, background: Background, export: ExportSpec, };
+export type RenderSpec = { input: string, canvas: Canvas, fit: FitSpec, background: Background, 
+/**
+ * Foreground inset 0..0.4 of the canvas short side (visual separation).
+ */
+margin: number, 
+/**
+ * Foreground border in px; 0 = none. With `#rrggbb` color.
+ */
+border: [number, string], export: ExportSpec, };

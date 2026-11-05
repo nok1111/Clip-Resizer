@@ -133,15 +133,61 @@ export function FitPanel() {
               onValueChange={(kind) =>
                 setSpec({
                   background:
-                    kind === "blur" ? { kind: "blur", sigma: 20, dim: 0.35 } : { kind: "solid", color: "#101418" },
+                    kind === "blur"
+                      ? { kind: "blur", sigma: 20, dim: 0.35 }
+                      : kind === "image"
+                        ? { kind: "image", path: spec.background.kind === "image" ? spec.background.path : "", blur: 0 }
+                        : { kind: "solid", color: "#101418" },
                 })
               }
               options={[
                 { value: "blur", label: t("studio.bgBlur") },
                 { value: "solid", label: t("studio.bgSolid") },
+                { value: "image", label: t("studio.bgImage") },
               ]}
               aria-label={t("studio.background")}
             />
+            {spec.background.kind === "image" && (
+              <>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void (async () => {
+                      const { open } = await import("@tauri-apps/plugin-dialog");
+                      const p = await open({ filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp", "bmp"] }] });
+                      if (typeof p === "string" && spec.background.kind === "image") {
+                        setSpec({ background: { ...spec.background, path: p } });
+                      }
+                    })()}
+                    className="rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-xs text-text hover:bg-bg cursor-pointer"
+                  >
+                    {t("studio.pickImage")}
+                  </button>
+                  <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={spec.background.path}>
+                    {spec.background.path ? spec.background.path.split(/[\\/]/).pop() : t("studio.noImage")}
+                  </span>
+                </div>
+                {spec.background.path !== "" && (
+                  <Range label={t("studio.blurSigma")} min={0} max={40} step={1} value={spec.background.blur}
+                    onChange={(blur) => setSpec({ background: spec.background.kind === "image" ? { ...spec.background, blur } : spec.background })} />
+                )}
+              </>
+            )}
+            <Range label={t("studio.margin")} min={0} max={0.3} step={0.01} value={spec.margin}
+              onChange={(margin) => setSpec({ margin })} />
+            <Range label={t("studio.borderPx")} min={0} max={24} step={1} value={spec.border[0]}
+              onChange={(b) => setSpec({ border: [b, spec.border[1]] })} />
+            {spec.border[0] > 0 && (
+              <label className="flex items-center gap-3 text-xs text-text-secondary">
+                {t("studio.borderColor")}
+                <input
+                  type="color"
+                  value={spec.border[1]}
+                  onChange={(e) => setSpec({ border: [spec.border[0], e.target.value] })}
+                  className="h-8 w-14 cursor-pointer rounded border border-border bg-transparent"
+                />
+              </label>
+            )}
             {spec.background.kind === "solid" && (
               <label className="flex items-center gap-3 text-xs text-text-secondary">
                 {t("studio.bgColor")}

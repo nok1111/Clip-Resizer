@@ -33,11 +33,12 @@
 - [x] Preview compuesto CSS (fill pan/zoom, fit solid, fit blur) + botón verify → frame real vía ffmpeg
 - [x] E2E real: 1920x1080 → 1080x1920 blur-fit h264_mf yuv420p
 
-## Fase 3 — Background Studio ⬜
+## Fase 3 — Background Studio ✅
 
-- [ ] Blur/solid/imagen + ajustes
-- [ ] Crop manual (Smart Crop panel) con offset/zoom
-- [ ] Preview en vivo (segundo `<video>` blurreado)
+- [x] Blur/solid/imagen + ajustes (blur sigma/dim, color, imagen + blur opcional)
+- [x] Separación visual: margin (0-40%) + border px/color en el fg
+- [x] Preview en vivo: segundo `<video>` blurreado o `<img>` para fondo imagen
+- [ ] Crop manual libre (drag-to-crop con máscara) → diferido: Fill con pan/zoom cubre el caso principal
 
 ## Fase 4 — Batch Processing ⬜
 

@@ -100,7 +100,13 @@
     "fpsKeep": "Mantener original",
     "audioCopy": "Copiar",
     "audioRemove": "Quitar",
-    "encoder": "Codificador: {{name}}"
+    "encoder": "Codificador: {{name}}",
+    "bgImage": "Imagen",
+    "pickImage": "Elegir imagen…",
+    "noImage": "Sin imagen",
+    "margin": "Margen",
+    "borderPx": "Borde",
+    "borderColor": "Color del borde"
   },
   "settings": {
     "title": "Ajustes",

@@ -18,6 +18,8 @@ export interface StudioSpec {
   custom: Canvas;
   fit: FitSpec;
   background: Background;
+  margin: number;
+  border: [number, string];
   export: ExportSpec;
 }
 
@@ -35,6 +37,8 @@ export const DEFAULT_SPEC: StudioSpec = {
   custom: { width: 1080, height: 1920 },
   fit: { kind: "fit" },
   background: { kind: "blur", sigma: 20, dim: 0.35 },
+  margin: 0,
+  border: [0, "#ffffff"],
   export: { codec: "h264", quality: "balanced", fps: null, audio: "copy" },
 };
 
@@ -48,6 +52,8 @@ export function buildRenderSpec(input: string, s: StudioSpec): RenderSpec {
     canvas: specCanvas(s),
     fit: s.fit,
     background: s.background,
+    margin: s.margin,
+    border: s.border,
     export: s.export,
   };
 }

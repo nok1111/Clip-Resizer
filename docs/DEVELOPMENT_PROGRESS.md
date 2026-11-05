@@ -100,3 +100,16 @@ Fase 2 — Core Video Resizer (`RenderSpec`, presets de aspecto, filtergraph fil
 ### Siguiente fase
 
 Fase 3 — Background Studio completo (imagen de fondo, crop manual con máscara, separación visual).
+---
+
+## Fase 3 — Background Studio (completada)
+
+**Fecha:** 2026-11-04
+
+- `Background::Image{path,blur}` (segundo input `-loop 1`), margin 0-40% + border px/color en el fg (separación visual) — ambos en el grafo y en el preview CSS.
+- UI: selector de fondo Blur/Solid/Image, selector de imagen (diálogo), sliders de margin/border/color.
+- Tests + checks verdes; build ok.
+
+### Siguiente fase
+
+Fase 4 — Batch Processing (cola, concurrencia, progreso por item, cancel/retry, historial).
