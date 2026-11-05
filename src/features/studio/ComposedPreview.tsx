@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { videoUrl } from "@/lib/ipc";
+import { ipc, videoUrl } from "@/lib/ipc";
 import { specCanvas, useStudioStore, type StudioItem } from "@/stores/studio";
 
 /**
@@ -8,12 +9,32 @@ import { specCanvas, useStudioStore, type StudioItem } from "@/stores/studio";
  * stage; Fill = cover + pan/zoom, Fit = letterbox (solid or blurred copy).
  */
 export function ComposedPreview({ item, onError }: { item: StudioItem; onError: () => void }) {
+  const { t } = useTranslation();
   const spec = useStudioStore((s) => s.spec);
   const canvas = specCanvas(spec);
   const [time, setTime] = useState(0);
   const [verify, setVerify] = useState(false);
   const previewFrameUrl = useStudioStore((s) => s.previewFrameUrl);
   const verifyFrame = useStudioStore((s) => s.verifyFrame);
+  // Decodable formats play directly; otherwise we transcode once to a
+  // cached H.264 proxy and swap the source.
+  const [src, setSrc] = useState<string | null>(null);
+  const [proxying, setProxying] = useState(false);
+  const triedProxy = useRef<string | null>(null);
+  const effectiveSrc = src ?? videoUrl(item.path);
+  const handleError = () => {
+    if (triedProxy.current !== item.path && !proxying) {
+      triedProxy.current = item.path;
+      setProxying(true);
+      ipc
+        .previewProxy(item.path)
+        .then((p) => setSrc(p === item.path ? videoUrl(p) : convertFileSrc(p)))
+        .catch(() => onError())
+        .finally(() => setProxying(false));
+    } else {
+      onError();
+    }
+  };
 
   const meta = item.meta!;
   const r = canvas.width / canvas.height;
@@ -21,25 +42,31 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const layers = useMemo(() => {
     const cover = Math.max(canvas.width / meta.width, canvas.height / meta.height);
     const fit = Math.min(canvas.width / meta.width, canvas.height / meta.height);
+    const vidRatio = `${meta.width} / ${meta.height}`;
+    // Position/sizing helper: element keeps the video's own aspect (width
+    // + aspect-ratio, never independent w/h → no distortion is possible).
+    const box = (scale: number) => {
+      const wPct = (meta.width * scale * 100) / canvas.width;
+      const hPct = (meta.height * scale * 100) / canvas.height;
+      return { wPct, hPct };
+    };
     if (spec.fit.kind === "fill") {
-      const sc = cover * spec.fit.zoom;
-      const wPct = (meta.width * sc * 100) / canvas.width;
-      const hPct = (meta.height * sc * 100) / canvas.height;
+      const { wPct, hPct } = box(cover * spec.fit.zoom);
       const slackX = Math.max(0, (wPct - 100) / 2);
       const slackY = Math.max(0, (hPct - 100) / 2);
       return {
         bg: null,
         fg: {
           width: `${wPct}%`,
-          height: `${hPct}%`,
+          aspectRatio: vidRatio,
+          height: "auto",
           left: `${50 + spec.fit.offset_x * slackX}%`,
           top: `${50 + spec.fit.offset_y * slackY}%`,
           transform: "translate(-50%,-50%)",
         },
       };
     }
-    const wPct = (meta.width * fit * 100) / canvas.width;
-    const hPct = (meta.height * fit * 100) / canvas.height;
+    const { wPct } = box(fit);
     // margin shrinks the fg box relative to the canvas (mirrors filtergraph).
     const shrink = 1 - 2 * spec.margin;
     const bPx = (spec.border[0] / canvas.height) * 100;
@@ -48,7 +75,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         spec.background.kind === "blur"
           ? {
               width: `${(meta.width * cover * 100) / canvas.width}%`,
-              height: `${(meta.height * cover * 100) / canvas.height}%`,
+              aspectRatio: vidRatio,
+              height: "auto",
               filter: `blur(${Math.round(spec.background.sigma / 2)}px) brightness(${1 - spec.background.dim})`,
               transform: "translate(-50%,-50%) scale(1.1)",
             }
@@ -60,7 +88,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
       imageBlur: spec.background.kind === "image" ? spec.background.blur / 2 : 0,
       fg: {
         width: `${wPct * shrink}%`,
-        height: `${hPct * shrink}%`,
+        aspectRatio: vidRatio,
+        height: "auto",
         left: "50%",
         top: "50%",
         transform: "translate(-50%,-50%)",
@@ -97,19 +126,19 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
           {layers.bg && (
             <video
               key={`bg-${item.path}`}
-              src={videoUrl(item.path)}
+              src={effectiveSrc}
               muted
               playsInline
               autoPlay
               loop
               className="absolute object-cover"
               style={layers.bg}
-              onError={onError}
+              onError={handleError}
             />
           )}
           <video
             key={`fg-${item.path}`}
-            src={videoUrl(item.path)}
+            src={effectiveSrc}
             controls={false}
             playsInline
             autoPlay
@@ -117,7 +146,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
             muted={layers.bg != null}
             className="absolute object-fill"
             style={layers.fg}
-            onError={onError}
+            onError={handleError}
             ref={(el) => {
               if (!el) return;
               const id = setInterval(() => setTime(el.currentTime), 250);
@@ -142,6 +171,11 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               <line x1="50" y1="46" x2="50" y2="54" stroke="rgba(255,235,60,0.7)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
               <line x1="46" y1="50" x2="54" y2="50" stroke="rgba(255,235,60,0.7)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
             </svg>
+          )}
+          {proxying && (
+            <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-black/70 px-2 py-1 text-[11px] text-text-secondary">
+              {t("studio.proxying")}
+            </span>
           )}
           {verify && previewFrameUrl && (
             <img

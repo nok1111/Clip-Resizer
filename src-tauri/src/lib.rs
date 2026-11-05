@@ -1,7 +1,8 @@
 mod commands;
 mod error;
 mod job_object;
-mod mediaproto;
+// clipvid/clipthumb removed: media is served via Tauri's asset protocol
+// (convertFileSrc), which WebView2's media pipeline accepts.
 mod policy;
 mod state;
 mod thumbnails;
@@ -33,7 +34,6 @@ pub fn run() {
             });
             Ok(())
         })
-        .register_uri_scheme_protocol("clipvid", |ctx, req| mediaproto::handle_video(&ctx, req))
         .register_uri_scheme_protocol("clipthumb", |ctx, req| {
             let state = ctx.app_handle().state::<AppState>();
             let name = req.uri().path();
@@ -75,6 +75,7 @@ pub fn run() {
             commands::queue::save_preset,
             commands::queue::list_presets,
             commands::queue::delete_preset,
+            commands::jobs::preview_proxy,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Clip Resizer");

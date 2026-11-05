@@ -113,7 +113,8 @@
     "guideSafe": "Márgenes seguros",
     "guideThirds": "Regla de tercios",
     "guideCenter": "Cruz central",
-    "guideExport": "Grabar en la salida"
+    "guideExport": "Grabar en la salida",
+    "proxying": "Generando proxy de vista previa…"
   },
   "settings": {
     "title": "Ajustes",

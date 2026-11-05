@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   errorMessage,
   ipc,
@@ -220,7 +221,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           : 1.0;
       const t = await ipc.videoThumbnail(path, seek, 320);
       set({
-        items: get().items.map((i) => (i.path === path ? { ...i, thumbUrl: t.url } : i)),
+        items: get().items.map((i) =>
+          i.path === path ? { ...i, thumbUrl: convertFileSrc(t.url) } : i,
+        ),
       });
     } catch {
       // A video with no decodable frame keeps the film-icon fallback —
@@ -287,7 +290,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (!item) return;
     try {
       const t = await ipc.previewFrame(buildRenderSpec(item.path, s.spec), tS);
-      set({ previewFrameUrl: `${t.url}?v=${Date.now()}` });
+      set({ previewFrameUrl: `${convertFileSrc(t.url)}?v=${Date.now()}` });
     } catch (e) {
       set({ render: { ...get().render, error: errorMessage(e) } });
     }

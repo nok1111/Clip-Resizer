@@ -1,4 +1,4 @@
-import { invoke, Channel } from "@tauri-apps/api/core";
+import { invoke, Channel, convertFileSrc } from "@tauri-apps/api/core";
 import type { AppInfo } from "./bindings/AppInfo";
 import type { ProbeResult } from "./bindings/ProbeResult";
 import type { ScanResult } from "./bindings/ScanResult";
@@ -57,9 +57,9 @@ export function errorCode(e: unknown): string | null {
   return null;
 }
 
-/** clipvid:// URL for a whitelisted video (percent-encoded full path). */
+/** Local video URL for <video>: asset:// (Range + secure-scheme handling). */
 export function videoUrl(path: string): string {
-  return `clipvid://localhost/${encodeURIComponent(path)}`;
+  return convertFileSrc(path);
 }
 
 export const ipc = {
@@ -88,6 +88,7 @@ export const ipc = {
     return invoke<void>("start_render", { spec, outputDir, conflict, onEvent: channel });
   },
   cancelRender: () => invoke<boolean>("cancel_render"),
+  previewProxy: (path: string) => invoke<string>("preview_proxy", { path }),
   enqueueRender: (specs: RenderSpec[], outputDir: string, conflict: ConflictPolicy, onEvent: (e: QueueEvent) => void) => {
     const channel = new Channel<QueueEvent>();
     channel.onmessage = onEvent;

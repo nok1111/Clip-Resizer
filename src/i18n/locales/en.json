@@ -113,7 +113,8 @@
     "guideSafe": "Safe margins",
     "guideThirds": "Rule of thirds",
     "guideCenter": "Center cross",
-    "guideExport": "Burn into output"
+    "guideExport": "Burn into output",
+    "proxying": "Generating preview proxy…"
   },
   "settings": {
     "title": "Settings",

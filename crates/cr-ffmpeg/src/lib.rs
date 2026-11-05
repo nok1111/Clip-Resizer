@@ -355,6 +355,73 @@ pub fn thumbnail(path: &Path, out: &Path, seek_s: f64, target_w: u32) -> Result<
     Ok(())
 }
 
+/// True when WebView2 can decode the stream natively (h264/aac in mp4/mov,
+/// vp8/vp9+vorbis/opus in webm). Everything else needs a preview proxy.
+pub fn webview_compatible(meta: &VideoMeta) -> bool {
+    let c = meta.container.as_str();
+    let v = meta.codec.to_ascii_lowercase();
+    if c.contains("matroska") || c.contains("webm") {
+        return matches!(v.as_str(), "vp8" | "vp9" | "av1");
+    }
+    if c.contains("mov") || c.contains("mp4") || c.contains("3gp") || c.contains("mj2") {
+        return v == "h264" || v == "avc1";
+    }
+    false
+}
+
+/// Transcodes `path` into a small H.264/AAC mp4 preview proxy at `out`
+/// (≤1280px wide). The original file is never modified; export still uses it.
+pub fn preview_proxy(path: &Path, out: &Path) -> Result<(), FfmpegError> {
+    let status = Command::new(ffmpeg()?)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+        ])
+        .arg(path)
+        .args([
+            "-vf",
+            "scale='min(1280,iw)':-2",
+            "-c:v",
+            "libopenh264",
+            "-b:v",
+            "1500k",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-movflags",
+            "+faststart",
+            "-f",
+            "mp4",
+        ])
+        .arg(out)
+        .output()
+        .map_err(|e| FfmpegError::Spawn {
+            tool: "ffmpeg",
+            source: e,
+        })?;
+    if !status.status.success() {
+        return Err(FfmpegError::Process {
+            tool: "ffmpeg",
+            code: status.status.code(),
+            detail: tail(&status.stderr),
+        });
+    }
+    if !out.is_file() {
+        return Err(FfmpegError::Process {
+            tool: "ffmpeg",
+            code: status.status.code(),
+            detail: "ffmpeg reported success but wrote no proxy".into(),
+        });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

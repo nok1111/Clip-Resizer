@@ -66,7 +66,7 @@ pub fn get(cache_dir: &Path, path: &Path, seek_s: f64, target: u32) -> CommandRe
 
     if file.exists() {
         return Ok(ThumbInfo {
-            url: format!("clipthumb://localhost/{name}"),
+            url: file.to_string_lossy().into_owned(),
             width: 0,
             height: 0,
             cached: true,
@@ -76,7 +76,7 @@ pub fn get(cache_dir: &Path, path: &Path, seek_s: f64, target: u32) -> CommandRe
     cr_ffmpeg::thumbnail(path, &file, seek_s, target)?;
 
     Ok(ThumbInfo {
-        url: format!("clipthumb://localhost/{name}"),
+        url: file.to_string_lossy().into_owned(),
         width: 0,
         height: 0,
         cached: false,

@@ -57,7 +57,7 @@ pub async fn preview_frame(
             render::preview_frame(&spec, &meta, seek, &file)?;
         }
         Ok(ThumbInfo {
-            url: format!("clipthumb://localhost/{name}"),
+            url: file.to_string_lossy().into_owned(),
             width: 0,
             height: 0,
             cached: file.exists(),
@@ -223,6 +223,40 @@ pub fn start_render(
         })
         .map_err(|e| CommandError::new("internal", e.to_string()))?;
     Ok(())
+}
+
+/// Returns a playable path for <video>: the original when WebView2 can
+/// decode it, else a cached low-res H.264 proxy (transcoded once).
+#[tauri::command]
+pub async fn preview_proxy(
+    state: State<'_, AppState>,
+    path: String,
+) -> CommandResult<String> {
+    let p = PathBuf::from(&path);
+    let allowed = state
+        .viewable
+        .lock()
+        .map(|v| v.contains(&p))
+        .unwrap_or(false);
+    if !allowed {
+        return Err(CommandError::new("invalid", "path is not in the imported set"));
+    }
+    let meta = probe_meta(&p)?;
+    if cr_ffmpeg::webview_compatible(&meta) {
+        return Ok(path);
+    }
+    let thumbs = state.thumbs_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let name = thumbnails::named_key(&p, "preview-proxy")?
+            .replace(".png", ".mp4");
+        let out = thumbs.join(&name);
+        if !out.exists() {
+            cr_ffmpeg::preview_proxy(&p, &out)?;
+        }
+        Ok(out.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string()))?
 }
 
 /// Requests cancellation of the running render. False if none is running.
