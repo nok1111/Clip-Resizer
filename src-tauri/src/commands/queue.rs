@@ -86,6 +86,10 @@ pub fn enqueue_render(
     if !dir.is_dir() {
         return Err(CommandError::new("output_dir_missing", format!("{output_dir}")));
     }
+    crate::policy::Policy::for_edition(
+        state.store.settings().map(|s| s.edition).unwrap_or_default(),
+    )
+    .check_batch(&specs)?;
     let encoders = render::encoders()?;
     let mut ids = Vec::new();
     {
@@ -418,4 +422,35 @@ pub fn queue_remove(state: State<'_, AppState>, id: u32) -> CommandResult<bool> 
 #[tauri::command]
 pub fn render_history(state: State<'_, AppState>) -> CommandResult<Vec<cr_model::HistoryRow>> {
     Ok(state.store.recent_renders(100)?)
+}
+
+/// Current edition id ("free"/"pro") for honest UI gating.
+#[tauri::command]
+pub fn edition(state: State<'_, AppState>) -> CommandResult<String> {
+    Ok(crate::policy::Policy::for_edition(
+        state.store.settings()?.edition,
+    )
+    .id()
+    .to_string())
+}
+
+#[tauri::command]
+pub fn save_preset(
+    state: State<'_, AppState>,
+    name: String,
+    spec: String,
+) -> CommandResult<i64> {
+    crate::policy::Policy::for_edition(state.store.settings()?.edition)
+        .check_preset_save()?;
+    Ok(state.store.save_preset(&name, &spec)?)
+}
+
+#[tauri::command]
+pub fn list_presets(state: State<'_, AppState>) -> CommandResult<Vec<(String, String)>> {
+    Ok(state.store.list_presets()?)
+}
+
+#[tauri::command]
+pub fn delete_preset(state: State<'_, AppState>, name: String) -> CommandResult<bool> {
+    Ok(state.store.delete_preset(&name)?)
 }

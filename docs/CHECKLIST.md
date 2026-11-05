@@ -48,11 +48,13 @@
 - [x] Studio "Queue all" → encola todos los items listos con el spec actual
 - [x] render_history SQLite escrita por item terminado + comando render_history
 
-## Fase 5 — Safe Zones + Export avanzado ⬜
+## Fase 5 — Safe Zones + Export avanzado ✅
 
-- [ ] Guías overlay (+export opt-in)
-- [ ] Presets custom, fps/bitrate/H.265
-- [ ] Policy Free/Pro en backend
+- [x] Guías overlay (safe 5%, tercios, centro) en preview + export opt-in vía drawbox (LGPL)
+- [x] Presets custom persistidos en SQLite (tabla presets, migración v3) + PresetsPage save/apply/delete
+- [x] Bitrate override manual, fps/codec/quality ya presentes, H.265 con libkvazaar/hw
+- [x] Policy Free/Pro declarativa en backend: canvas≤1080x1920, solo H.264, sin bg imagen, sin bitrate custom, sin guides quemadas, batch=1, sin presets — errores pro_required
+- [x] settings.edition (free/pro) temporal hasta licencia (Fase 6); History sigue pendiente
 
 ## Fase 6 — Commercial Polish ⬜
 

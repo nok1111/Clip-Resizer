@@ -5,6 +5,10 @@ import type { VideoCodec } from "./VideoCodec";
 
 export type ExportSpec = { codec: VideoCodec, quality: QualityPreset, 
 /**
+ * Explicit bitrate kbps; None = computed from canvas/fps/quality.
+ */
+bitrateKbps: bigint | null, 
+/**
  * Target fps; None = keep source.
  */
 fps: number | null, audio: AudioMode, };

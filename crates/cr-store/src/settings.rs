@@ -21,6 +21,20 @@ pub struct Settings {
     pub concurrent_renders: u32,
     /// First-run wizard was finished or skipped.
     pub onboarding_done: bool,
+    /// Temporary until license activation lands (Phase 6): selects the
+    /// enforced policy. Defaults to `pro` so development isn't gated; a
+    /// release build will ship `free` until activated.
+    #[ts(type = "\"free\" | \"pro\"")]
+    pub edition: Edition,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum Edition {
+    Free,
+    #[default]
+    Pro,
 }
 
 impl Settings {

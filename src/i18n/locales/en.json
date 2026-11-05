@@ -106,7 +106,14 @@
     "noImage": "No image selected",
     "margin": "Margin",
     "borderPx": "Border",
-    "borderColor": "Border color"
+    "borderColor": "Border color",
+    "bitrateKbps": "Bitrate kbps",
+    "bitrateAuto": "auto",
+    "guides": "Safe zones",
+    "guideSafe": "Safe margins",
+    "guideThirds": "Rule of thirds",
+    "guideCenter": "Center cross",
+    "guideExport": "Burn into output"
   },
   "settings": {
     "title": "Settings",
@@ -133,7 +140,9 @@
     "engine": "FFmpeg engine",
     "engineMissing": "not installed — run scripts/fetch-ffmpeg.ps1",
     "licenses": "Third-party licences are bundled under THIRD_PARTY_NOTICES in the installer.",
-    "loadError": "Could not load settings: {{message}}"
+    "loadError": "Could not load settings: {{message}}",
+    "edition": "Edition",
+    "editionHint": "Free/Pro policy — temporary until license activation"
   },
   "status": {
     "ready": "Ready",
@@ -187,5 +196,16 @@
       "cancelled": "Cancelled",
       "skipped": "Skipped"
     }
+  },
+  "presets": {
+    "saveCurrent": "Save current spec as preset",
+    "namePh": "Preset name…",
+    "save": "Save",
+    "apply": "Apply",
+    "delete": "Delete",
+    "empty": "No presets yet",
+    "emptyHint": "Save the current Studio spec to reuse it later",
+    "proOnly": "Custom presets are a Pro feature",
+    "badSpec": "Preset data is invalid"
   }
 }

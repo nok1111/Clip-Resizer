@@ -158,6 +158,24 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
     if let Some(fps) = spec.export.fps {
         v.push_str(&format!(",fps=fps={}", fmt_fps(fps)));
     }
+    // Burned-in guides (opt-in; drawbox is in the LGPL filter set).
+    let g = spec.guides;
+    let gc = "yellow@0.7";
+    if g.export && g.safe {
+        v.push_str(&format!(",drawbox=x=w*0.05:y=h*0.05:w=w*0.9:h=h*0.9:color={gc}:t=2"));
+    }
+    if g.export && g.thirds {
+        for x in ["w/3", "2*w/3"] {
+            v.push_str(&format!(",drawbox=x={x}:y=0:w=2:h=ih:color={gc}:t=fill"));
+        }
+        for y in ["h/3", "2*h/3"] {
+            v.push_str(&format!(",drawbox=x=0:y={y}:w=iw:h=2:color={gc}:t=fill"));
+        }
+    }
+    if g.export && g.center {
+        v.push_str(&format!(",drawbox=x=(iw-24)/2:y=ih/2-1:w=24:h=2:color={gc}:t=fill"));
+        v.push_str(&format!(",drawbox=x=iw/2-1:y=(ih-24)/2:w=2:h=24:color={gc}:t=fill"));
+    }
     v.push_str(",setsar=1,format=yuv420p");
     v
 }
@@ -185,9 +203,12 @@ fn fmt_fps(f: f64) -> String {
 
 // ── Bitrate / quality mapping ───────────────────────────────────────────────
 
-/// Target bitrate (kbps) for canvas+fps: bits-per-pixel heuristic, honest
-/// CBR for hardware encoders that lack a real CRF.
+/// Target bitrate (kbps): explicit override wins, else bits-per-pixel
+/// heuristic scaled by canvas/fps/codec.
 pub fn bitrate_kbps(spec: &RenderSpec, fps: f64) -> u64 {
+    if let Some(b) = spec.export.bitrate_kbps {
+        return b.clamp(200, 200_000);
+    }
     let Canvas { width, height } = spec.canvas;
     let bpp = match spec.export.quality {
         QualityPreset::Fast => 0.05,
@@ -582,9 +603,16 @@ mod tests {
             background: bg,
             margin: 0.0,
             border: (0.0, "#ffffff".into()),
+            guides: cr_model::Guides {
+                safe: false,
+                thirds: false,
+                center: false,
+                export: false,
+            },
             export: ExportSpec {
                 codec: VideoCodec::H264,
                 quality: QualityPreset::Balanced,
+                bitrate_kbps: None,
                 fps: None,
                 audio: AudioMode::Copy,
             },

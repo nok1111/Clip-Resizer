@@ -106,7 +106,14 @@
     "noImage": "Sin imagen",
     "margin": "Margen",
     "borderPx": "Borde",
-    "borderColor": "Color del borde"
+    "borderColor": "Color del borde",
+    "bitrateKbps": "Bitrate kbps",
+    "bitrateAuto": "auto",
+    "guides": "Zonas seguras",
+    "guideSafe": "Márgenes seguros",
+    "guideThirds": "Regla de tercios",
+    "guideCenter": "Cruz central",
+    "guideExport": "Grabar en la salida"
   },
   "settings": {
     "title": "Ajustes",
@@ -133,7 +140,9 @@
     "engine": "Motor FFmpeg",
     "engineMissing": "no instalado — ejecuta scripts/fetch-ffmpeg.ps1",
     "licenses": "Las licencias de terceros se incluyen en THIRD_PARTY_NOTICES en el instalador.",
-    "loadError": "No se pudieron cargar los ajustes: {{message}}"
+    "loadError": "No se pudieron cargar los ajustes: {{message}}",
+    "edition": "Edición",
+    "editionHint": "Política Free/Pro — temporal hasta activación de licencia"
   },
   "status": {
     "ready": "Listo",
@@ -187,5 +196,16 @@
       "cancelled": "Cancelado",
       "skipped": "Omitido"
     }
+  },
+  "presets": {
+    "saveCurrent": "Guardar spec actual como preset",
+    "namePh": "Nombre del preset…",
+    "save": "Guardar",
+    "apply": "Aplicar",
+    "delete": "Eliminar",
+    "empty": "Sin presets todavía",
+    "emptyHint": "Guarda el spec actual de Studio para reutilizarlo",
+    "proOnly": "Los presets personalizados son una función Pro",
+    "badSpec": "Datos de preset no válidos"
   }
 }

@@ -7,7 +7,7 @@ import { aspectLabel, formatBytes, formatDurationMs, formatFps } from "@/lib/for
 import { ipc } from "@/lib/ipc";
 import { useStudioStore } from "@/stores/studio";
 import { ComposedPreview } from "./ComposedPreview";
-import { ExportPanel, FitPanel, FormatPanel } from "./panels";
+import { ExportPanel, FitPanel, FormatPanel, GuidesPanel } from "./panels";
 
 export function PreviewPane() {
   const { t } = useTranslation();
@@ -58,7 +58,10 @@ export function PreviewPane() {
         {item && (
           <div className="grid gap-3 p-4 md:grid-cols-3">
             <FormatPanel />
-            <FitPanel />
+            <div className="flex flex-col gap-3">
+              <FitPanel />
+              <GuidesPanel />
+            </div>
             <div className="flex flex-col gap-3">
               <ExportPanel />
               <div className="flex gap-2">

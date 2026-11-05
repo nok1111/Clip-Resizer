@@ -128,3 +128,20 @@ Fase 4 — Batch Processing (cola, concurrencia, progreso por item, cancel/retry
 ### Siguiente fase
 
 Fase 5 — Safe Zones + Export avanzado (guías overlay, presets custom, fps/bitrate/H.265, Policy Free/Pro).
+---
+
+## Fase 5 — Safe Zones + Export avanzado (completada)
+
+**Fecha:** 2026-11-05
+
+- `Guides{safe,thirds,center,export}` en RenderSpec: overlays SVG fieles en preview + quemado opt-in con drawbox (verificado LGPL).
+- ExportSpec.bitrate_kbps override manual; encoder CBR lo respeta.
+- `policy.rs`: Policy Free/Pro declarativa con tests; límites Free: canvas ≤1080×1920, solo H.264, sin imagen de fondo, sin bitrate custom, sin guides quemadas, batch ≤1, sin presets. Errores `pro_required:code`.
+- `settings.edition` (free/pro) como selector temporal hasta activación de licencia real en Fase 6.
+- Tabla `presets` (migración v3) + save/list/delete + PresetsPage real con aviso Free.
+- Fix Phase 4: render_history SQL alineado al esquema real (at/ok/failed/bytes_out/output_dir/meta JSON).
+- Verificación: 55 cargo tests, 13 vitest, clippy/typecheck/lint/build limpios.
+
+### Siguiente fase
+
+Fase 6 — Commercial Polish (licencia real, THIRD_PARTY_NOTICES, instalador, History page, fixtures).

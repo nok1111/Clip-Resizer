@@ -264,6 +264,21 @@ export function ExportPanel() {
             className="w-full min-w-0"
           />
         </Field>
+        <Field label={t("studio.bitrateKbps")}>
+          <Input
+            type="number"
+            min={0}
+            step={500}
+            placeholder={t("studio.bitrateAuto")}
+            value={e.bitrateKbps ?? ""}
+            onChange={(v2) =>
+              setSpec({
+                export: { ...e, bitrateKbps: v2.target.value === "" ? null : Math.max(200, Number(v2.target.value) || 0) },
+              })
+            }
+            className="w-full"
+          />
+        </Field>
         <Field label={t("studio.audio")}>
           <Select<AudioMode>
             value={e.audio}
@@ -280,6 +295,35 @@ export function ExportPanel() {
         <p className="col-span-2 text-xs text-text-secondary">
           {t("studio.encoder", { name: encoder ?? "—" })}
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function GuidesPanel() {
+  const { t } = useTranslation();
+  const spec = useStudioStore((s) => s.spec);
+  const setSpec = useStudioStore((s) => s.setSpec);
+  const g = spec.guides;
+  const toggle = (k: "safe" | "thirds" | "center" | "export") =>
+    setSpec({ guides: { ...g, [k]: !g[k] } });
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>{t("studio.guides")}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {(["safe", "thirds", "center", "export"] as const).map((k) => (
+          <label key={k} className="flex cursor-pointer items-center gap-2.5 text-xs text-text-secondary">
+            <input
+              type="checkbox"
+              checked={g[k]}
+              onChange={() => toggle(k)}
+              className="size-3.5 accent-[var(--cr-accent)]"
+            />
+            {t(`studio.guide${k === "export" ? "Export" : k[0].toUpperCase() + k.slice(1)}`)}
+          </label>
+        ))}
       </CardContent>
     </Card>
   );

@@ -20,6 +20,7 @@ export interface StudioSpec {
   background: Background;
   margin: number;
   border: [number, string];
+  guides: import("@/lib/ipc").Guides;
   export: ExportSpec;
 }
 
@@ -39,7 +40,8 @@ export const DEFAULT_SPEC: StudioSpec = {
   background: { kind: "blur", sigma: 20, dim: 0.35 },
   margin: 0,
   border: [0, "#ffffff"],
-  export: { codec: "h264", quality: "balanced", fps: null, audio: "copy" },
+  guides: { safe: true, thirds: false, center: false, export: false },
+  export: { codec: "h264", quality: "balanced", bitrateKbps: null, fps: null, audio: "copy" },
 };
 
 export function specCanvas(s: StudioSpec): Canvas {
@@ -54,6 +56,7 @@ export function buildRenderSpec(input: string, s: StudioSpec): RenderSpec {
     background: s.background,
     margin: s.margin,
     border: s.border,
+    guides: s.guides,
     export: s.export,
   };
 }

@@ -39,6 +39,7 @@ export type { QueueEvent } from "./bindings/QueueEvent";
 export type { QueueItem } from "./bindings/QueueItem";
 export type { QueueStatus } from "./bindings/QueueStatus";
 export type { HistoryRow } from "./bindings/HistoryRow";
+export type { Guides } from "./bindings/Guides";
 
 /** Shape of errors returned by Rust commands (see src-tauri/src/error.rs). */
 export interface CommandError {
@@ -97,4 +98,8 @@ export const ipc = {
   queueRetry: (id: number) => invoke<boolean>("queue_retry", { id }),
   queueRemove: (id: number) => invoke<boolean>("queue_remove", { id }),
   renderHistory: () => invoke<HistoryRow[]>("render_history"),
+  edition: () => invoke<"free" | "pro">("edition"),
+  savePreset: (name: string, spec: string) => invoke<number>("save_preset", { name, spec }),
+  listPresets: () => invoke<[string, string][]>("list_presets"),
+  deletePreset: (name: string) => invoke<boolean>("delete_preset", { name }),
 };

@@ -4,7 +4,7 @@
 mod migrations;
 mod settings;
 
-pub use settings::Settings;
+pub use settings::{Edition, Settings};
 
 use rusqlite::Connection;
 use std::path::Path;
@@ -88,7 +88,7 @@ impl Store {
         self.settings()
     }
 
-    /// Insert a finished render into history.
+    /// Insert a finished render into history (per-item row).
     pub fn insert_render(
         &self,
         input: &str,
@@ -97,11 +97,23 @@ impl Store {
         bytes: i64,
         finished_at: i64,
     ) -> Result<()> {
+        let meta = serde_json::json!({ "input": input, "output": output, "status": status });
+        let out_dir = std::path::Path::new(output)
+            .parent()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
         let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
         conn.execute(
-            "INSERT INTO render_history (input, output, status, bytes, finished_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params![input, output, status, bytes, finished_at],
+            "INSERT INTO render_history (at, inputs, ok, failed, bytes_out, output_dir, meta)
+             VALUES (?1, 1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![
+                finished_at,
+                if status == "done" { 1 } else { 0 },
+                if status == "done" { 0 } else { 1 },
+                bytes,
+                out_dir,
+                meta.to_string(),
+            ],
         )?;
         Ok(())
     }
@@ -110,20 +122,61 @@ impl Store {
     pub fn recent_renders(&self, limit: u32) -> Result<Vec<cr_model::HistoryRow>> {
         let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
         let mut st = conn.prepare(
-            "SELECT id, input, output, status, bytes, finished_at
+            "SELECT id, at, ok, bytes_out, meta
              FROM render_history ORDER BY id DESC LIMIT ?1",
         )?;
         let rows = st
             .query_map([limit], |r| {
+                let meta: String = r.get(4)?;
+                let m: serde_json::Value =
+                    serde_json::from_str(&meta).unwrap_or(serde_json::json!({}));
+                let ok: i64 = r.get(2)?;
                 Ok(cr_model::HistoryRow {
                     id: r.get(0)?,
-                    input: r.get(1)?,
-                    output: r.get(2)?,
-                    status: r.get(3)?,
-                    bytes: r.get(4)?,
-                    finished_at: r.get(5)?,
+                    input: m["input"].as_str().unwrap_or("").to_string(),
+                    output: m["output"].as_str().unwrap_or("").to_string(),
+                    status: if ok > 0 { "done" } else { "failed" }.to_string(),
+                    bytes: r.get(3)?,
+                    finished_at: r.get(1)?,
                 })
             })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
+    /// Save a named preset (spec JSON). Returns its id.
+    pub fn save_preset(&self, name: &str, spec_json: &str) -> Result<i64> {
+        let name = name.trim();
+        if name.is_empty() || name.len() > 60 {
+            return Err(StoreError::Invalid {
+                field: "preset.name",
+                reason: "1-60 chars".into(),
+            });
+        }
+        let at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
+        conn.execute(
+            "INSERT INTO presets (name, spec, created_at) VALUES (?1, ?2, ?3)
+             ON CONFLICT(name) DO UPDATE SET spec = excluded.spec",
+            rusqlite::params![name, spec_json, at],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn delete_preset(&self, name: &str) -> Result<bool> {
+        let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
+        Ok(conn.execute("DELETE FROM presets WHERE name = ?1", [name])? > 0)
+    }
+
+    /// (name, spec_json) pairs ordered by name.
+    pub fn list_presets(&self) -> Result<Vec<(String, String)>> {
+        let conn = self.conn.lock().map_err(|_| StoreError::Poisoned)?;
+        let mut st = conn.prepare("SELECT name, spec FROM presets ORDER BY name")?;
+        let rows = st
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }

@@ -3,6 +3,7 @@ import type { Background } from "./Background";
 import type { Canvas } from "./Canvas";
 import type { ExportSpec } from "./ExportSpec";
 import type { FitSpec } from "./FitSpec";
+import type { Guides } from "./Guides";
 
 /**
  * Everything needed to render one video → one FFmpeg command.
@@ -15,4 +16,4 @@ margin: number,
 /**
  * Foreground border in px; 0 = none. With `#rrggbb` color.
  */
-border: [number, string], export: ExportSpec, };
+border: [number, string], guides: Guides, export: ExportSpec, };

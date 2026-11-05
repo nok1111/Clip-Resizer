@@ -19,6 +19,12 @@ const MIGRATIONS: &[&str] = &[
         output_dir TEXT NOT NULL DEFAULT '',
         meta       TEXT NOT NULL DEFAULT ''
     )"#,
+    r#"CREATE TABLE presets (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL UNIQUE,
+        spec       TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    )"#,
 ];
 
 pub const LATEST: usize = MIGRATIONS.len();

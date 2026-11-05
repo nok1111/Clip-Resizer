@@ -237,6 +237,8 @@ pub enum AudioMode {
 pub struct ExportSpec {
     pub codec: VideoCodec,
     pub quality: QualityPreset,
+    /// Explicit bitrate kbps; None = computed from canvas/fps/quality.
+    pub bitrate_kbps: Option<u64>,
     /// Target fps; None = keep source.
     pub fps: Option<f64>,
     pub audio: AudioMode,
@@ -255,7 +257,23 @@ pub struct RenderSpec {
     pub margin: f64,
     /// Foreground border in px; 0 = none. With `#rrggbb` color.
     pub border: (f64, String),
+    pub guides: Guides,
     pub export: ExportSpec,
+}
+
+/// Overlay guides; only burned into the output when `export` is true.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Guides {
+    /// Safe margin box at ~5% inset.
+    pub safe: bool,
+    /// Rule-of-thirds grid.
+    pub thirds: bool,
+    /// Center cross.
+    pub center: bool,
+    /// Burn guides into the output (default: preview only).
+    pub export: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]

@@ -125,6 +125,24 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               el.addEventListener("emptied", obs, { once: true });
             }}
           />
+          {/* Guide overlays — preview only unless spec.guides.export */}
+          {spec.guides.thirds && (
+            <svg className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 3 3" preserveAspectRatio="none">
+              <line x1="1" y1="0" x2="1" y2="3" stroke="rgba(255,235,60,0.6)" strokeWidth="0.015" vectorEffect="non-scaling-stroke" />
+              <line x1="2" y1="0" x2="2" y2="3" stroke="rgba(255,235,60,0.6)" strokeWidth="0.015" vectorEffect="non-scaling-stroke" />
+              <line x1="0" y1="1" x2="3" y2="1" stroke="rgba(255,235,60,0.6)" strokeWidth="0.015" vectorEffect="non-scaling-stroke" />
+              <line x1="0" y1="2" x2="3" y2="2" stroke="rgba(255,235,60,0.6)" strokeWidth="0.015" vectorEffect="non-scaling-stroke" />
+            </svg>
+          )}
+          {spec.guides.safe && (
+            <div className="pointer-events-none absolute border border-warning/70" style={{ inset: "5%" }} />
+          )}
+          {spec.guides.center && (
+            <svg className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <line x1="50" y1="46" x2="50" y2="54" stroke="rgba(255,235,60,0.7)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
+              <line x1="46" y1="50" x2="54" y2="50" stroke="rgba(255,235,60,0.7)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
+            </svg>
+          )}
           {verify && previewFrameUrl && (
             <img
               src={previewFrameUrl}

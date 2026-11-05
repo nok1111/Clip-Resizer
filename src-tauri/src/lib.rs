@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod job_object;
 mod mediaproto;
+mod policy;
 mod state;
 mod thumbnails;
 
@@ -70,6 +71,10 @@ pub fn run() {
             commands::queue::queue_retry,
             commands::queue::queue_remove,
             commands::queue::render_history,
+            commands::queue::edition,
+            commands::queue::save_preset,
+            commands::queue::list_presets,
+            commands::queue::delete_preset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Clip Resizer");

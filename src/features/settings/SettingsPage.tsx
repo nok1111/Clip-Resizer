@@ -48,6 +48,18 @@ export function SettingsPage() {
                 aria-label={t("settings.theme")}
               />
             </Field>
+            <Field label={t("settings.edition")}>
+              <Segmented
+                value={settings.edition}
+                onValueChange={(edition) => set({ edition })}
+                options={[
+                  { value: "free", label: "Free" },
+                  { value: "pro", label: "Pro" },
+                ]}
+                aria-label={t("settings.edition")}
+              />
+              <p className="text-[11px] text-text-secondary/80">{t("settings.editionHint")}</p>
+            </Field>
             <Field label={t("settings.language")}>
               <Select<Language>
                 value={settings.language}

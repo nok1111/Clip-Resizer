@@ -15,4 +15,10 @@ concurrentRenders: number,
 /**
  * First-run wizard was finished or skipped.
  */
-onboardingDone: boolean, };
+onboardingDone: boolean, 
+/**
+ * Temporary until license activation lands (Phase 6): selects the
+ * enforced policy. Defaults to `pro` so development isn't gated; a
+ * release build will ship `free` until activated.
+ */
+edition: "free" | "pro", };
