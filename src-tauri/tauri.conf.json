@@ -32,7 +32,7 @@
       "../vendor/ffmpeg/bin/ffmpeg.exe": "ffmpeg/ffmpeg.exe",
       "../vendor/ffmpeg/bin/ffprobe.exe": "ffmpeg/ffprobe.exe"
     },
-    "category": "Multimedia",
+    "category": "Video",
     "shortDescription": "Local video resizing and social-media formatting studio",
     "icon": [
       "icons/32x32.png",

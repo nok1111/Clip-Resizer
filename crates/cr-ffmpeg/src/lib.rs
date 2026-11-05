@@ -360,6 +360,38 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Repo-root path for generated fixtures (scripts/make-fixtures.ps1).
+    fn fixture(name: &str) -> Option<PathBuf> {
+        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        dir.pop(); // crates/
+        dir.pop(); // repo root
+        let p = dir.join("tests").join("fixtures").join("videos").join(name);
+        p.is_file().then_some(p)
+    }
+
+    #[test]
+    fn probes_and_thumbnails_real_fixtures() {
+        let Some(path) = fixture("landscape_1080p_30.mp4") else {
+            eprintln!("fixture missing — skipping (run scripts/make-fixtures.ps1)");
+            return;
+        };
+        if crate::ffmpeg().is_err() {
+            eprintln!("vendored ffmpeg missing — skipping");
+            return;
+        }
+        let r = probe(&path);
+        let m = r.meta.expect("real fixture must probe");
+        assert_eq!((m.width, m.height), (1920, 1080));
+        assert_eq!(m.codec, "h264");
+        assert!(m.has_audio);
+        assert!(m.duration_ms > 2500 && m.duration_ms < 3500, "{}", m.duration_ms);
+
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path().join("t.png");
+        thumbnail(&path, &tmp, 1.0, 320).unwrap();
+        assert!(tmp.metadata().unwrap().len() > 1000);
+    }
+
     #[test]
     fn parses_typical_ffprobe_json() {
         let v = json!({

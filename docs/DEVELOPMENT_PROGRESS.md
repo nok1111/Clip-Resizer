@@ -145,3 +145,20 @@ Fase 5 — Safe Zones + Export avanzado (guías overlay, presets custom, fps/bit
 ### Siguiente fase
 
 Fase 6 — Commercial Polish (licencia real, THIRD_PARTY_NOTICES, instalador, History page, fixtures).
+---
+
+## Fase 6 — Commercial Polish (parcial)
+
+**Fecha:** 2026-11-05
+
+- `THIRD_PARTY_NOTICES.md`: FFmpeg LGPL (build+SHA-256, ruta de fuente), tabla de licencias de deps.
+- `icon.icns` generado; installer NSIS/MSI configurado con ffmpeg empaquetado en `ffmpeg/`.
+- HistoryPage: filas reales de render_history (nombre, origen, fecha, bytes, estado, reveal).
+- `scripts/make-fixtures.ps1`: 7 vídeos de test (1080p/9:16/1:1/4:5/720p/4:3@15fps/rotado) vía lavfi; test de integración `probes_and_thumbnails_real_fixtures` los ejercita.
+- Fixes: `bitrate_kbps` ts-rs → number (no bigint); clave dinámica en GuidesPanel; gitignore fixtures.
+
+### Pendiente honesto
+
+- Licencia real (Lemon Squeezy + Ed25519) — la infraestructura Policy/Edition ya existe.
+- Firma de código — requiere certificado comercial; SmartScreen warning documentado.
+- Licencia de fuentes/third-party review completo en release.

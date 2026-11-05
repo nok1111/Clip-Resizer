@@ -29,7 +29,7 @@ export const TOOL_MODULES: ToolModule[] = [
   { id: "studio", path: "/studio", icon: Clapperboard, available: true },
   { id: "queue", path: "/queue", icon: Layers, available: true },
   { id: "presets", path: "/presets", icon: SlidersHorizontal, available: true },
-  { id: "history", path: "/history", icon: Clock3, available: false },
+  { id: "history", path: "/history", icon: Clock3, available: true },
 ];
 
 export const NAV_ITEMS: NavItem[] = [

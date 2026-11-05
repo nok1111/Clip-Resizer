@@ -313,7 +313,14 @@ export function GuidesPanel() {
         <CardTitle>{t("studio.guides")}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        {(["safe", "thirds", "center", "export"] as const).map((k) => (
+        {(
+          [
+            ["safe", "studio.guideSafe"],
+            ["thirds", "studio.guideThirds"],
+            ["center", "studio.guideCenter"],
+            ["export", "studio.guideExport"],
+          ] as const
+        ).map(([k, key]) => (
           <label key={k} className="flex cursor-pointer items-center gap-2.5 text-xs text-text-secondary">
             <input
               type="checkbox"
@@ -321,7 +328,7 @@ export function GuidesPanel() {
               onChange={() => toggle(k)}
               className="size-3.5 accent-[var(--cr-accent)]"
             />
-            {t(`studio.guide${k === "export" ? "Export" : k[0].toUpperCase() + k.slice(1)}`)}
+            {t(key)}
           </label>
         ))}
       </CardContent>

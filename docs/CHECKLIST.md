@@ -56,8 +56,12 @@
 - [x] Policy Free/Pro declarativa en backend: canvas≤1080x1920, solo H.264, sin bg imagen, sin bitrate custom, sin guides quemadas, batch=1, sin presets — errores pro_required
 - [x] settings.edition (free/pro) temporal hasta licencia (Fase 6); History sigue pendiente
 
-## Fase 6 — Commercial Polish ⬜
+## Fase 6 — Commercial Polish (parcial)
 
-- [ ] Licencia (activación Lemon Squeezy + claves firmadas)
-- [ ] THIRD_PARTY_NOTICES, instalador NSIS, iconos finales
-- [ ] Fixtures de test, docs de usuario
+- [x] THIRD_PARTY_NOTICES.md (FFmpeg LGPL, build+hash, oferta de fuente, tabla de deps)
+- [x] Iconos completos (.ico multi-size, .icns, PNGs)
+- [x] HistoryPage con datos reales de render_history (reveal, bytes, fecha, estado)
+- [x] tests/fixtures/videos: matriz de 7 vídeos sintéticos (make-fixtures.ps1, gitignored) + test de integración probe+thumbnail real
+- [x] Instalador NSIS configurado (targets nsis+msi, ffmpeg resources empaquetados, currentUser)
+- [ ] Licencia real (Lemon Squeezy + claves Ed25519) — pendiente
+- [ ] Firma de código (necesita certificado) — documentado

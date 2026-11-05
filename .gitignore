@@ -17,6 +17,7 @@ vendor/
 # Test artifacts
 coverage/
 tests/fixtures/generated/
+tests/fixtures/videos/
 
 # OS / editor
 .DS_Store

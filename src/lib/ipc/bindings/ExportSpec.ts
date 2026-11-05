@@ -7,7 +7,7 @@ export type ExportSpec = { codec: VideoCodec, quality: QualityPreset,
 /**
  * Explicit bitrate kbps; None = computed from canvas/fps/quality.
  */
-bitrateKbps: bigint | null, 
+bitrateKbps: number | null, 
 /**
  * Target fps; None = keep source.
  */

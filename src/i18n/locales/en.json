@@ -207,5 +207,9 @@
     "emptyHint": "Save the current Studio spec to reuse it later",
     "proOnly": "Custom presets are a Pro feature",
     "badSpec": "Preset data is invalid"
+  },
+  "history": {
+    "empty": "No renders yet",
+    "emptyHint": "Finished exports appear here"
   }
 }

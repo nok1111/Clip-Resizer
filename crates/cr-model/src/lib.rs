@@ -238,6 +238,7 @@ pub struct ExportSpec {
     pub codec: VideoCodec,
     pub quality: QualityPreset,
     /// Explicit bitrate kbps; None = computed from canvas/fps/quality.
+    #[ts(type = "number | null")]
     pub bitrate_kbps: Option<u64>,
     /// Target fps; None = keep source.
     pub fps: Option<f64>,

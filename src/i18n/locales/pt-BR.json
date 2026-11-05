@@ -207,5 +207,9 @@
     "emptyHint": "Salve o spec atual do Studio para reutilizá-lo",
     "proOnly": "Presets personalizados são um recurso Pro",
     "badSpec": "Dados de preset inválidos"
+  },
+  "history": {
+    "empty": "Nenhum render ainda",
+    "emptyHint": "As exportações concluídas aparecem aqui"
   }
 }
