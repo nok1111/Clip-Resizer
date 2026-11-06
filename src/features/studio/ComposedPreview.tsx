@@ -69,7 +69,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
       };
     }
     // Fit, or zoomed-out Fill (zoom < 1): fg sits on the chosen background.
-    const fgScale = spec.fit.kind === "fill" ? cover * spec.fit.zoom : fit;
+    const fgScale =
+      spec.fit.kind === "fill" ? cover * spec.fit.zoom : fit * spec.fit.zoom;
     const { wPct } = box(fgScale);
     const shrink = spec.fit.kind === "fill" ? 1 : 1 - 2 * spec.margin;
     const bPx = (spec.border[0] / canvas.height) * 100;

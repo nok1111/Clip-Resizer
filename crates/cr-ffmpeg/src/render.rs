@@ -111,11 +111,13 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
                 ));
             }
         }
-        FitSpec::Fit => {
-            // Foreground box: canvas minus margin (each side), keeping aspect.
+        FitSpec::Fit { zoom } => {
+            // Foreground box: canvas minus margin (each side), times zoom —
+            // zoom > 1 grows the fg past the canvas (background layers crop it).
             let m = spec.margin.clamp(0.0, 0.4);
-            let iw = ((w as f64 * (1.0 - 2.0 * m)) as u32) & !1;
-            let ih = ((h as f64 * (1.0 - 2.0 * m)) as u32) & !1;
+            let z = zoom.clamp(0.05, 8.0);
+            let iw = ((w as f64 * (1.0 - 2.0 * m) * z) as u32) & !1;
+            let ih = ((h as f64 * (1.0 - 2.0 * m) * z) as u32) & !1;
             v.push_str(&fit_graph(spec, w, h, iw, ih));
         }
     }
@@ -158,7 +160,11 @@ fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32) -> String {
     let fg = format!("scale={iw}:{ih}:force_original_aspect_ratio=decrease:flags=lanczos{borderpad}");
     match &spec.background {
         Background::Solid { color } => {
-            format!("{fg},pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:{color}")
+            // pad up to the LARGER of fg/canvas then crop centered: fg may
+            // exceed the canvas when fit zoom > 1 (crop handles both ways).
+            format!(
+                "{fg},pad='max(iw,{w})':'max(ih,{h})':(ow-iw)/2:(oh-ih)/2:{color},crop={w}:{h}"
+            )
         }
         Background::Blur { sigma, dim } => {
             let lum = 1.0 - dim.clamp(0.0, 0.95);
@@ -275,7 +281,7 @@ pub fn build_args(
         spec.input.clone(),
     ];
     // Second input: the background still (looped for the whole duration).
-    if let FitSpec::Fit = spec.fit {
+    if let FitSpec::Fit { .. } = spec.fit {
         if let Background::Image { path, .. } = &spec.background {
             args.extend(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
         }
@@ -517,7 +523,7 @@ pub fn preview_frame(
         "-i".into(),
         spec.input.clone(),
     ]);
-    if let FitSpec::Fit = spec.fit {
+    if let FitSpec::Fit { .. } = spec.fit {
         if let Background::Image { path, .. } = &spec.background {
             cmd.args(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
         }
@@ -663,21 +669,23 @@ mod tests {
     #[test]
     fn fit_solid_graph_letterboxes() {
         let g = filtergraph(
-            &spec(FitSpec::Fit, Background::Solid {
+            &spec(FitSpec::Fit { zoom: 1.0 }, Background::Solid {
                 color: "#101418".into(),
             }),
             1920,
             1080,
         );
         assert!(g.contains("force_original_aspect_ratio=decrease"));
-        assert!(g.contains("pad=1080:1920"));
+        // pad-then-crop handles fg both smaller and larger than the canvas
+        assert!(g.contains("pad='max(iw,1080)':'max(ih,1920)'"));
+        assert!(g.contains("crop=1080:1920"));
         assert!(g.contains("#101418"));
     }
 
     #[test]
     fn fit_blur_graph_splits_and_overlays() {
         let g = filtergraph(
-            &spec(FitSpec::Fit, Background::Blur {
+            &spec(FitSpec::Fit { zoom: 1.0 }, Background::Blur {
                 sigma: 20.0,
                 dim: 0.4,
             }),
@@ -728,7 +736,7 @@ mod tests {
 
     #[test]
     fn bitrate_scales_with_area_fps_and_quality() {
-        let mut s = spec(FitSpec::Fit, Background::Solid { color: "#000".into() });
+        let mut s = spec(FitSpec::Fit { zoom: 1.0 }, Background::Solid { color: "#000".into() });
         let b1080 = bitrate_kbps(&s, 30.0);
         s.canvas = Canvas { width: 720, height: 1280 };
         assert!(bitrate_kbps(&s, 30.0) < b1080);
@@ -740,7 +748,7 @@ mod tests {
     #[test]
     fn args_have_progress_pipe_and_faststart() {
         let a = build_args(
-            &spec(FitSpec::Fit, Background::Solid { color: "#000".into() }),
+            &spec(FitSpec::Fit { zoom: 1.0 }, Background::Solid { color: "#000".into() }),
             &meta(),
             "h264_mf",
             Path::new("out.mp4"),

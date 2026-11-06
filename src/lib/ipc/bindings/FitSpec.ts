@@ -3,4 +3,4 @@
 /**
  * How the source maps onto the canvas.
  */
-export type FitSpec = { "kind": "fill", offset_x: number, offset_y: number, zoom: number, } | { "kind": "fit" };
+export type FitSpec = { "kind": "fill", offset_x: number, offset_y: number, zoom: number, } | { "kind": "fit", zoom: number, };

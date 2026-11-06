@@ -187,7 +187,15 @@ pub enum FitSpec {
         zoom: f64,
     },
     /// Fit whole frame inside the canvas (letterbox via `background`).
-    Fit,
+    /// zoom > 1 enlarges the fg past the canvas (it gets cropped).
+    Fit {
+        #[serde(default = "fit_zoom_default")]
+        zoom: f64,
+    },
+}
+
+fn fit_zoom_default() -> f64 {
+    1.0
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
