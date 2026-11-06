@@ -41,6 +41,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const stageRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const ovDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const stDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const setSpec = useStudioStore((s) => s.setSpec);
 
   const layers = useMemo(() => {
@@ -254,6 +255,47 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 }}
                 onPointerUp={() => (ovDrag.current = null)}
                 onPointerCancel={() => (ovDrag.current = null)}
+              />
+            </div>
+          )}
+          {/* Sticker — clipped to the frame, above everything; draggable. */}
+          {spec.sticker?.path && (
+            <div className="absolute inset-0 overflow-hidden">
+              <img
+                src={convertFileSrc(spec.sticker.path)}
+                alt=""
+                draggable={false}
+                className="absolute cursor-move touch-none object-contain"
+                style={{
+                  width: `${spec.sticker.scale * 100}%`,
+                  left: `${50 + (spec.sticker.offsetX * (100 - spec.sticker.scale * 100)) / 2}%`,
+                  top: `${50 + (spec.sticker.offsetY * (100 - spec.sticker.scale * 100)) / 2}%`,
+                  transform: "translate(-50%,-50%)",
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  stDrag.current = { x: e.clientX, y: e.clientY, ox: spec.sticker!.offsetX, oy: spec.sticker!.offsetY };
+                  (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const d = stDrag.current;
+                  const el = stageRef.current;
+                  const st = spec.sticker;
+                  if (!d || !el || !st) return;
+                  const r2 = el.getBoundingClientRect();
+                  const free = 100 - st.scale * 100;
+                  if (free < 1) return;
+                  e.stopPropagation();
+                  setSpec({
+                    sticker: {
+                      ...st,
+                      offsetX: Math.max(-1, Math.min(1, d.ox + ((e.clientX - d.x) / r2.width) * 200 / free)),
+                      offsetY: Math.max(-1, Math.min(1, d.oy + ((e.clientY - d.y) / r2.height) * 200 / free)),
+                    },
+                  });
+                }}
+                onPointerUp={() => (stDrag.current = null)}
+                onPointerCancel={() => (stDrag.current = null)}
               />
             </div>
           )}

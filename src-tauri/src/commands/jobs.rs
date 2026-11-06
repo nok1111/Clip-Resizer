@@ -225,6 +225,30 @@ pub fn start_render(
     Ok(())
 }
 
+/// Saves a sticker PNG (rasterized icon or user image bytes) into the
+/// thumbs cache; returns its absolute path for use as sticker input.
+#[tauri::command]
+pub async fn save_sticker_png(
+    state: State<'_, AppState>,
+    name: String,
+    bytes: Vec<u8>,
+) -> CommandResult<String> {
+    if bytes.len() > 32 * 1024 * 1024 {
+        return Err(CommandError::new("invalid", "sticker too large"));
+    }
+    let dir = state.thumbs_dir.join("stickers");
+    std::fs::create_dir_all(&dir).map_err(|e| CommandError::new("io", e.to_string()))?;
+    let safe = name.replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "_");
+    let path = dir.join(format!("{}_{:x}.png", &safe[..safe.len().min(32)], crc32_simple(&bytes)));
+    std::fs::write(&path, &bytes).map_err(|e| CommandError::new("io", e.to_string()))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+fn crc32_simple(b: &[u8]) -> u32 {
+    // Not cryptographic — just a stable cache key for sticker files.
+    b.iter().fold(0u32, |acc, &x| acc.wrapping_mul(31).wrapping_add(x as u32))
+}
+
 /// Returns a playable path for <video>: the original when WebView2 can
 /// decode it, else a cached low-res H.264 proxy (transcoded once).
 #[tauri::command]

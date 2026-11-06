@@ -21,4 +21,8 @@ border: [number, string], guides: Guides,
 /**
  * Optional picture-in-picture overlay video (reaction-video style).
  */
-overlay: OverlaySpec | null, export: ExportSpec, };
+overlay: OverlaySpec | null, 
+/**
+ * Optional still image / icon on top (sticker); same shape as overlay.
+ */
+sticker: OverlaySpec | null, export: ExportSpec, };
