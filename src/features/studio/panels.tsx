@@ -119,7 +119,7 @@ export function FitPanel() {
         />
         {fill ? (
           <>
-            <Range label={t("studio.zoom")} min={0.1} max={3} step={0.05} value={fill.zoom}
+            <Range label={t("studio.zoom")} min={0.1} max={8} step={0.05} value={fill.zoom}
               onChange={(zoom) => setSpec({ fit: { ...fill, zoom } })} />
             <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02} value={fill.offset_x}
               onChange={(offset_x) => setSpec({ fit: { ...fill, offset_x } })} />
