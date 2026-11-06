@@ -50,7 +50,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
       const hPct = (meta.height * scale * 100) / canvas.height;
       return { wPct, hPct };
     };
-    if (spec.fit.kind === "fill") {
+    if (spec.fit.kind === "fill" && spec.fit.zoom >= 0.999) {
       const { wPct, hPct } = box(cover * spec.fit.zoom);
       const slackX = Math.max(0, (wPct - 100) / 2);
       const slackY = Math.max(0, (hPct - 100) / 2);
@@ -68,9 +68,10 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         },
       };
     }
-    const { wPct } = box(fit);
-    // margin shrinks the fg box relative to the canvas (mirrors filtergraph).
-    const shrink = 1 - 2 * spec.margin;
+    // Fit, or zoomed-out Fill (zoom < 1): fg sits on the chosen background.
+    const fgScale = spec.fit.kind === "fill" ? cover * spec.fit.zoom : fit;
+    const { wPct } = box(fgScale);
+    const shrink = spec.fit.kind === "fill" ? 1 : 1 - 2 * spec.margin;
     const bPx = (spec.border[0] / canvas.height) * 100;
     return {
       bg:

@@ -87,72 +87,38 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
             offset_y,
             zoom,
         } => {
-            // Cover scale: the crop window is canvas-sized inside a frame
-            // scaled up so it covers; offsets pan within the slack.
-            // crop=w:h:x:y on the scaled frame is the robust classic recipe.
-            let cover = format!(
-                "scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos"
-            );
-            let zoom = zoom.max(1.0);
-            v.push_str(&cover);
-            v.push_str(&format!(",scale=trunc(iw*{zoom}/2)*2:trunc(ih*{zoom}/2)*2"));
-            // crop slack: (iw-w)/2 ± offset*slack
-            v.push_str(&format!(
-                ",crop={w}:{h}:x='(iw-{w})/2{}':y='(ih-{h})/2{}'",
-                signed_mul(clamp01(offset_x), &format!("(iw-{w})/2")),
-                signed_mul(clamp01(offset_y), &format!("(ih-{h})/2")),
-            ));
+            // cover scale so the frame covers the canvas; zoom < 1 shrinks
+            // below cover → letterboxed on the chosen background (like a
+            // "negative margin"), zoom >= 1 crops into the frame.
+            let cover_s = (w as f64 / src_w as f64).max(h as f64 / src_h as f64);
+            let sc = cover_s * zoom.clamp(0.05, 8.0);
+            if sc < cover_s * 0.999 {
+                let iw = (src_w as f64 * sc).max(2.0) as u32 & !1;
+                let ih = (src_h as f64 * sc).max(2.0) as u32 & !1;
+                v.push_str(&fit_graph(spec, w, h, iw, ih));
+            } else {
+                // crop=w:h:x:y on the scaled frame is the robust classic recipe.
+                v.push_str(&format!(
+                    "scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos"
+                ));
+                let z = sc / cover_s;
+                v.push_str(&format!(",scale=trunc(iw*{z}/2)*2:trunc(ih*{z}/2)*2"));
+                // crop slack: (iw-w)/2 ± offset*slack
+                v.push_str(&format!(
+                    ",crop={w}:{h}:x='(iw-{w})/2{}':y='(ih-{h})/2{}'",
+                    signed_mul(clamp01(offset_x), &format!("(iw-{w})/2")),
+                    signed_mul(clamp01(offset_y), &format!("(ih-{h})/2")),
+                ));
+            }
         }
         FitSpec::Fit => {
             // Foreground box: canvas minus margin (each side), keeping aspect.
             let m = spec.margin.clamp(0.0, 0.4);
-            let (bw, border) = &spec.border;
-            // Foreground box = canvas minus margin per side (even dims).
-            let iw2 = ((w as f64 * (1.0 - 2.0 * m)) as u32) & !1;
-            let ih2 = ((h as f64 * (1.0 - 2.0 * m)) as u32) & !1;
-            let inner = format!("{iw2}:{ih2}");
-            let borderpad = if *bw > 0.0 {
-                format!(",pad=iw+{b}:ih+{b}:(ow-iw)/2:(oh-ih)/2:{border}", b = (2.0 * *bw) as i32)
-            } else {
-                String::new()
-            };
-            let fgscale = |tag: &str| {
-                format!("scale={inner}:force_original_aspect_ratio=decrease:flags=lanczos{borderpad}{tag}")
-            };
-            match &spec.background {
-                Background::Solid { color } => {
-                    v.push_str(&format!(
-                        "{fg},pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:{color}",
-                        fg = fgscale(""),
-                    ));
-                }
-                Background::Blur { sigma, dim } => {
-                    let lum = 1.0 - dim.clamp(0.0, 0.95);
-                    // lutyuv replaces eq (GPL-only filter, absent in LGPL builds)
-                    v.push_str(&format!(
-                        "split[fg][bg];\
-                         [bg]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
-                         crop={w}:{h},gblur=sigma={sigma},lutyuv=y='val*{lum}'[bg2];\
-                         [fg]{fg}[fg2];\
-                         [bg2][fg2]overlay=(W-w)/2:(H-h)/2",
-                        fg = fgscale(""),
-                    ));
-                }
-                Background::Image { blur, .. } => {
-                    // Input 1 is the still; loop it as a video stream.
-                    let gb = if *blur > 0.0 { format!(",gblur=sigma={blur}") } else { String::new() };
-                    v.push_str(&format!(
-                        "[1:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
-                         crop={w}:{h}{gb}[bg2];\
-                         [0:v]{fg}[fg2];\
-                         [bg2][fg2]overlay=(W-w)/2:(H-h)/2",
-                        fg = fgscale(""),
-                    ));
-                }
-            }
+            let iw = ((w as f64 * (1.0 - 2.0 * m)) as u32) & !1;
+            let ih = ((h as f64 * (1.0 - 2.0 * m)) as u32) & !1;
+            v.push_str(&fit_graph(spec, w, h, iw, ih));
         }
     }
-    let _ = (src_w, src_h); // geometry is computed by ffmpeg expressions
     // No fps filter when keeping the source rate — it would be a no-op
     // anyway (and "source" is not a valid fps constant).
     if let Some(fps) = spec.export.fps {
@@ -178,6 +144,44 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
     }
     v.push_str(",setsar=1,format=yuv420p");
     v
+}
+
+/// Foreground scaled to iw×ih (decrease) over the chosen background —
+/// shared by Fit and zoomed-out Fill.
+fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32) -> String {
+    let (bw, border) = &spec.border;
+    let borderpad = if *bw > 0.0 {
+        format!(",pad=iw+{b}:ih+{b}:(ow-iw)/2:(oh-ih)/2:{border}", b = (2.0 * *bw) as i32)
+    } else {
+        String::new()
+    };
+    let fg = format!("scale={iw}:{ih}:force_original_aspect_ratio=decrease:flags=lanczos{borderpad}");
+    match &spec.background {
+        Background::Solid { color } => {
+            format!("{fg},pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:{color}")
+        }
+        Background::Blur { sigma, dim } => {
+            let lum = 1.0 - dim.clamp(0.0, 0.95);
+            // lutyuv replaces eq (GPL-only filter, absent in LGPL builds)
+            format!(
+                "split[fg][bg];\
+                 [bg]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
+                 crop={w}:{h},gblur=sigma={sigma},lutyuv=y='val*{lum}'[bg2];\
+                 [fg]{fg}[fg2];\
+                 [bg2][fg2]overlay=(W-w)/2:(H-h)/2"
+            )
+        }
+        Background::Image { blur, .. } => {
+            // Input 1 is the still; loop it as a video stream.
+            let gb = if *blur > 0.0 { format!(",gblur=sigma={blur}") } else { String::new() };
+            format!(
+                "[1:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
+                 crop={w}:{h}{gb}[bg2];\
+                 [0:v]{fg}[fg2];\
+                 [bg2][fg2]overlay=(W-w)/2:(H-h)/2"
+            )
+        }
+    }
 }
 
 fn clamp01(v: f64) -> f64 {
