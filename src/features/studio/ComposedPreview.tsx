@@ -40,6 +40,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const r = canvas.width / canvas.height;
   const stageRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const ovDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const setSpec = useStudioStore((s) => s.setSpec);
 
   const layers = useMemo(() => {
@@ -211,7 +212,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               el.addEventListener("emptied", obs, { once: true });
             }}
           />
-          {/* PiP overlay — clipped to the frame but above the fg. */}
+          {/* PiP overlay — clipped to the frame but above the fg; draggable. */}
           {spec.overlay?.path && (
             <div className="absolute inset-0 overflow-hidden">
               <video
@@ -221,7 +222,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 playsInline
                 autoPlay
                 loop
-                className="absolute object-contain"
+                className="absolute cursor-move touch-none object-contain"
                 style={{
                   width: `${spec.overlay.scale * 100}%`,
                   left: `${50 + (spec.overlay.offsetX * (100 - spec.overlay.scale * 100)) / 2}%`,
@@ -229,6 +230,30 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                   transform: "translate(-50%,-50%)",
                 }}
                 onError={() => undefined}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  ovDrag.current = { x: e.clientX, y: e.clientY, ox: spec.overlay!.offsetX, oy: spec.overlay!.offsetY };
+                  (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const d = ovDrag.current;
+                  const el = stageRef.current;
+                  const ov = spec.overlay;
+                  if (!d || !el || !ov) return;
+                  const r2 = el.getBoundingClientRect();
+                  const free = 100 - ov.scale * 100;
+                  if (free < 1) return;
+                  e.stopPropagation();
+                  setSpec({
+                    overlay: {
+                      ...ov,
+                      offsetX: Math.max(-1, Math.min(1, d.ox + ((e.clientX - d.x) / r2.width) * 200 / free)),
+                      offsetY: Math.max(-1, Math.min(1, d.oy + ((e.clientY - d.y) / r2.height) * 200 / free)),
+                    },
+                  });
+                }}
+                onPointerUp={() => (ovDrag.current = null)}
+                onPointerCancel={() => (ovDrag.current = null)}
               />
             </div>
           )}
