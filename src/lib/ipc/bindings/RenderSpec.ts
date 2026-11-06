@@ -4,6 +4,7 @@ import type { Canvas } from "./Canvas";
 import type { ExportSpec } from "./ExportSpec";
 import type { FitSpec } from "./FitSpec";
 import type { Guides } from "./Guides";
+import type { OverlaySpec } from "./OverlaySpec";
 
 /**
  * Everything needed to render one video → one FFmpeg command.
@@ -16,4 +17,8 @@ margin: number,
 /**
  * Foreground border in px; 0 = none. With `#rrggbb` color.
  */
-border: [number, string], guides: Guides, export: ExportSpec, };
+border: [number, string], guides: Guides, 
+/**
+ * Optional picture-in-picture overlay video (reaction-video style).
+ */
+overlay: OverlaySpec | null, export: ExportSpec, };

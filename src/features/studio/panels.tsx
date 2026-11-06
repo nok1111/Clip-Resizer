@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
@@ -353,6 +354,61 @@ export function GuidesPanel() {
             {t(key)}
           </label>
         ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function OverlayPanel() {
+  const { t } = useTranslation();
+  const spec = useStudioStore((s) => s.spec);
+  const setSpec = useStudioStore((s) => s.setSpec);
+  const ov = spec.overlay;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>{t("studio.overlay")}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              void (async () => {
+                const { open } = await import("@tauri-apps/plugin-dialog");
+                const p = await open({
+                  filters: [{ name: "Video", extensions: ["mp4", "mov", "mkv", "webm", "avi", "m4v", "ts", "wmv"] }],
+                });
+                if (typeof p === "string") {
+                  setSpec({
+                    overlay: { path: p, scale: ov?.scale ?? 0.35, offsetX: ov?.offsetX ?? 0.7, offsetY: ov?.offsetY ?? 0.7 },
+                  });
+                }
+              })()
+            }
+            className="rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-xs text-text hover:bg-bg cursor-pointer"
+          >
+            {t("studio.overlayPick")}
+          </button>
+          <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={ov?.path ?? ""}>
+            {ov?.path ? ov.path.split(/[\\/]/).pop() : t("studio.overlayNone")}
+          </span>
+          {ov && (
+            <Button variant="ghost" size="sm" onClick={() => setSpec({ overlay: null })}>
+              {t("studio.overlayOff")}
+            </Button>
+          )}
+        </div>
+        {ov && (
+          <>
+            <Range label={t("studio.overlayScale")} min={0.05} max={1} step={0.05} value={ov.scale}
+              onChange={(scale) => setSpec({ overlay: { ...ov, scale } })} />
+            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02} value={ov.offsetX}
+              onChange={(offsetX) => setSpec({ overlay: { ...ov, offsetX } })} />
+            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02} value={ov.offsetY}
+              onChange={(offsetY) => setSpec({ overlay: { ...ov, offsetY } })} />
+          </>
+        )}
       </CardContent>
     </Card>
   );

@@ -272,7 +272,25 @@ pub struct RenderSpec {
     /// Foreground border in px; 0 = none. With `#rrggbb` color.
     pub border: (f64, String),
     pub guides: Guides,
+    /// Optional picture-in-picture overlay video (reaction-video style).
+    #[serde(default)]
+    pub overlay: Option<OverlaySpec>,
     pub export: ExportSpec,
+}
+
+/// A second video composited on top of the main composition.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct OverlaySpec {
+    /// Video file used as the overlay.
+    pub path: String,
+    /// Width as a fraction of the canvas width (0.05..1.0).
+    pub scale: f64,
+    /// Horizontal position -1..1: -1 left edge, 0 center, +1 right edge.
+    pub offset_x: f64,
+    /// Vertical position -1..1: -1 top, 0 center, +1 bottom.
+    pub offset_y: f64,
 }
 
 /// Overlay guides; only burned into the output when `export` is true.

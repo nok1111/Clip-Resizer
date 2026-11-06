@@ -114,7 +114,12 @@
     "guideThirds": "Rule of thirds",
     "guideCenter": "Center cross",
     "guideExport": "Burn into output",
-    "proxying": "Generating preview proxy…"
+    "proxying": "Generating preview proxy…",
+    "overlay": "Overlay video",
+    "overlayPick": "Pick video…",
+    "overlayNone": "No overlay",
+    "overlayOff": "Remove",
+    "overlayScale": "Scale"
   },
   "settings": {
     "title": "Settings",

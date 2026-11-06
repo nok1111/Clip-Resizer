@@ -114,7 +114,12 @@
     "guideThirds": "Regla de tercios",
     "guideCenter": "Cruz central",
     "guideExport": "Grabar en la salida",
-    "proxying": "Generando proxy de vista previa…"
+    "proxying": "Generando proxy de vista previa…",
+    "overlay": "Video overlay",
+    "overlayPick": "Elegir video…",
+    "overlayNone": "Sin overlay",
+    "overlayOff": "Quitar",
+    "overlayScale": "Escala"
   },
   "settings": {
     "title": "Ajustes",

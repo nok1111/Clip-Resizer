@@ -127,6 +127,20 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
             v.push_str(&fit_graph(spec, w, h, iw, ih, offset_x, offset_y));
         }
     }
+    // Picture-in-picture overlay: input index 2 when an image bg exists.
+    if let Some(ov) = &spec.overlay {
+        let img_bg = matches!(spec.fit, FitSpec::Fit { .. })
+            && matches!(spec.background, Background::Image { .. });
+        let oi = if img_bg { 2 } else { 1 };
+        let wf = ov.scale.clamp(0.05, 1.0);
+        let px = (1.0 + ov.offset_x.clamp(-1.0, 1.0)) / 2.0;
+        let py = (1.0 + ov.offset_y.clamp(-1.0, 1.0)) / 2.0;
+        v.push_str("[base]");
+        v.push_str(&format!(
+            ";[{oi}:v]scale=trunc({w}*{wf:.4}/2)*2:-2,format=yuv420p[ovr];\
+             [base][ovr]overlay='(W-w)*{px:.4}':'(H-h)*{py:.4}'"
+        ));
+    }
     // No fps filter when keeping the source rate — it would be a no-op
     // anyway (and "source" is not a valid fps constant).
     if let Some(fps) = spec.export.fps {
@@ -303,6 +317,10 @@ pub fn build_args(
         if let Background::Image { path, .. } = &spec.background {
             args.extend(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
         }
+    }
+    // Overlay video input (index 2 when an image bg exists, else 1).
+    if let Some(ov) = &spec.overlay {
+        args.extend(["-i".into(), ov.path.clone()]);
     }
     args.extend([
         "-filter_complex".into(),
@@ -546,6 +564,9 @@ pub fn preview_frame(
             cmd.args(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
         }
     }
+    if let Some(ov) = &spec.overlay {
+        cmd.args(["-i".into(), ov.path.clone()]);
+    }
     cmd.args([
         "-filter_complex".into(),
         filtergraph(spec, meta.width, meta.height),
@@ -631,6 +652,7 @@ mod tests {
             background: bg,
             margin: 0.0,
             border: (0.0, "#ffffff".into()),
+            overlay: None,
             guides: cr_model::Guides {
                 safe: false,
                 thirds: false,

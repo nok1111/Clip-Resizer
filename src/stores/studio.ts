@@ -22,6 +22,7 @@ export interface StudioSpec {
   margin: number;
   border: [number, string];
   guides: import("@/lib/ipc").Guides;
+  overlay: import("@/lib/ipc").OverlaySpec | null;
   export: ExportSpec;
 }
 
@@ -42,6 +43,7 @@ export const DEFAULT_SPEC: StudioSpec = {
   margin: 0,
   border: [0, "#ffffff"],
   guides: { safe: true, thirds: false, center: false, export: false },
+  overlay: null,
   export: { codec: "h264", quality: "balanced", bitrateKbps: null, fps: null, audio: "copy" },
 };
 
@@ -58,6 +60,7 @@ export function buildRenderSpec(input: string, s: StudioSpec): RenderSpec {
     margin: s.margin,
     border: s.border,
     guides: s.guides,
+    overlay: s.overlay,
     export: s.export,
   };
 }
