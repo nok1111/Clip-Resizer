@@ -7,10 +7,10 @@
    structure, distinct hue from Image Batch Studio's violet). */
 :root,
 .dark {
-  --cr-bg: #0e1117;
-  --cr-bg-secondary: #151a23;
-  --cr-card: #1d232f;
-  --cr-card-hover: #232b39;
+  --cr-bg: rgb(14 17 23 / 0.55);
+  --cr-bg-secondary: rgb(21 26 35 / 0.6);
+  --cr-card: rgb(29 35 47 / 0.72);
+  --cr-card-hover: rgb(35 43 57 / 0.8);
   --cr-border: #2a3342;
   --cr-accent: #ff9a3d;
   --cr-accent-hover: #ffab5e;
@@ -26,10 +26,10 @@
 }
 
 .light {
-  --cr-bg: #f5f6f8;
-  --cr-bg-secondary: #eceef2;
-  --cr-card: #ffffff;
-  --cr-card-hover: #fbf7f2;
+  --cr-bg: rgb(245 246 248 / 0.6);
+  --cr-bg-secondary: rgb(236 238 242 / 0.65);
+  --cr-card: rgb(255 255 255 / 0.72);
+  --cr-card-hover: rgb(251 247 242 / 0.85);
   --cr-border: #dde0e7;
   --cr-accent: #e56f1f;
   --cr-accent-hover: #c95f14;
@@ -72,7 +72,8 @@ body,
 
 body {
   margin: 0;
-  background: var(--cr-bg);
+  background: url("../assets/background.png") center / cover no-repeat fixed,
+    var(--cr-bg);
   color: var(--cr-text);
   font-family: var(--font-sans);
   font-size: 14px;
