@@ -80,6 +80,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               width: `${(meta.width * cover * 100) / canvas.width}%`,
               aspectRatio: vidRatio,
               height: "auto",
+              left: "50%",
+              top: "50%",
               filter: `blur(${Math.round(spec.background.sigma / 2)}px) brightness(${1 - spec.background.dim})`,
               transform: "translate(-50%,-50%) scale(1.1)",
             }
