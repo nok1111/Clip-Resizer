@@ -71,8 +71,13 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
     // Fit, or zoomed-out Fill (zoom < 1): fg sits on the chosen background.
     const fgScale =
       spec.fit.kind === "fill" ? cover * spec.fit.zoom : fit * spec.fit.zoom;
-    const { wPct } = box(fgScale);
+    const { wPct, hPct } = box(fgScale);
     const shrink = spec.fit.kind === "fill" ? 1 : 1 - 2 * spec.margin;
+    // Pan within the free space (letterbox) or the crop window (oversized).
+    const oxx = "offset_x" in spec.fit ? spec.fit.offset_x : 0;
+    const oyy = "offset_y" in spec.fit ? spec.fit.offset_y : 0;
+    const slackX = (wPct * shrink - 100) / 2;
+    const slackY = (hPct * shrink - 100) / 2;
     const bPx = (spec.border[0] / canvas.height) * 100;
     return {
       bg:
@@ -96,8 +101,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         width: `${wPct * shrink}%`,
         aspectRatio: vidRatio,
         height: "auto",
-        left: "50%",
-        top: "50%",
+        left: `${50 - oxx * slackX}%`,
+        top: `${50 - oyy * slackY}%`,
         transform: "translate(-50%,-50%)",
         boxSizing: "border-box" as const,
         border: spec.border[0] > 0 ? `${bPx}cqh solid ${spec.border[1]}` : undefined,

@@ -108,7 +108,7 @@ export function FitPanel() {
               fit:
                 kind === "fill"
                   ? { kind: "fill", offset_x: 0, offset_y: 0, zoom: 1 }
-                  : { kind: "fit", zoom: 1 },
+                  : { kind: "fit", zoom: 1, offset_x: 0, offset_y: 0 },
             })
           }
           options={[
@@ -179,8 +179,22 @@ export function FitPanel() {
               max={8}
               step={0.05}
               value={spec.fit.kind === "fit" ? spec.fit.zoom : 1}
-              onChange={(zoom) => setSpec({ fit: { kind: "fit", zoom } })}
+              onChange={(zoom) =>
+                setSpec({
+                  fit: spec.fit.kind === "fit" ? { ...spec.fit, zoom } : spec.fit,
+                })
+              }
             />
+            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02}
+              value={spec.fit.kind === "fit" ? spec.fit.offset_x : 0}
+              onChange={(offset_x) =>
+                setSpec({ fit: spec.fit.kind === "fit" ? { ...spec.fit, offset_x } : spec.fit })
+              } />
+            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02}
+              value={spec.fit.kind === "fit" ? spec.fit.offset_y : 0}
+              onChange={(offset_y) =>
+                setSpec({ fit: spec.fit.kind === "fit" ? { ...spec.fit, offset_y } : spec.fit })
+              } />
             <Range label={t("studio.margin")} min={0} max={0.3} step={0.01} value={spec.margin}
               onChange={(margin) => setSpec({ margin })} />
             <Range label={t("studio.borderPx")} min={0} max={24} step={1} value={spec.border[0]}

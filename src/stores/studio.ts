@@ -37,7 +37,7 @@ export const ASPECT_CANVAS: Record<Exclude<AspectPreset, "custom">, Canvas> = {
 export const DEFAULT_SPEC: StudioSpec = {
   preset: "9:16",
   custom: { width: 1080, height: 1920 },
-  fit: { kind: "fit", zoom: 1 },
+  fit: { kind: "fit", zoom: 1, offset_x: 0, offset_y: 0 },
   background: { kind: "blur", sigma: 20, dim: 0.35 },
   margin: 0,
   border: [0, "#ffffff"],

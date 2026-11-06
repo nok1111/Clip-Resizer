@@ -187,10 +187,15 @@ pub enum FitSpec {
         zoom: f64,
     },
     /// Fit whole frame inside the canvas (letterbox via `background`).
-    /// zoom > 1 enlarges the fg past the canvas (it gets cropped).
+    /// zoom > 1 enlarges the fg past the canvas (it gets cropped);
+    /// offsets -1..1 pan within the free space (letterbox or crop slack).
     Fit {
         #[serde(default = "fit_zoom_default")]
         zoom: f64,
+        #[serde(default)]
+        offset_x: f64,
+        #[serde(default)]
+        offset_y: f64,
     },
 }
 

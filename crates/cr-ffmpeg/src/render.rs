@@ -95,7 +95,7 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
             if sc < cover_s * 0.999 {
                 let iw = (src_w as f64 * sc).max(2.0) as u32 & !1;
                 let ih = (src_h as f64 * sc).max(2.0) as u32 & !1;
-                v.push_str(&fit_graph(spec, w, h, iw, ih));
+                v.push_str(&fit_graph(spec, w, h, iw, ih, offset_x, offset_y));
             } else {
                 // crop=w:h:x:y on the scaled frame is the robust classic recipe.
                 v.push_str(&format!(
@@ -111,14 +111,18 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
                 ));
             }
         }
-        FitSpec::Fit { zoom } => {
+        FitSpec::Fit {
+            zoom,
+            offset_x,
+            offset_y,
+        } => {
             // Foreground box: canvas minus margin (each side), times zoom —
             // zoom > 1 grows the fg past the canvas (background layers crop it).
             let m = spec.margin.clamp(0.0, 0.4);
             let z = zoom.clamp(0.05, 8.0);
             let iw = ((w as f64 * (1.0 - 2.0 * m) * z) as u32) & !1;
             let ih = ((h as f64 * (1.0 - 2.0 * m) * z) as u32) & !1;
-            v.push_str(&fit_graph(spec, w, h, iw, ih));
+            v.push_str(&fit_graph(spec, w, h, iw, ih, offset_x, offset_y));
         }
     }
     // No fps filter when keeping the source rate — it would be a no-op
@@ -150,7 +154,7 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
 
 /// Foreground scaled to iw×ih (decrease) over the chosen background —
 /// shared by Fit and zoomed-out Fill.
-fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32) -> String {
+fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32, ox: f64, oy: f64) -> String {
     let (bw, border) = &spec.border;
     let borderpad = if *bw > 0.0 {
         format!(",pad=iw+{b}:ih+{b}:(ow-iw)/2:(oh-ih)/2:{border}", b = (2.0 * *bw) as i32)
@@ -158,12 +162,23 @@ fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32) -> String {
         String::new()
     };
     let fg = format!("scale={iw}:{ih}:force_original_aspect_ratio=decrease:flags=lanczos{borderpad}");
+    // Center + offset*slack — same convention as the Fill crop: positive
+    // offset pans toward the right/bottom of the frame.
+    let px = signed_mul(clamp01(ox), "(ow-iw)/2");
+    let py = signed_mul(clamp01(oy), "(oh-ih)/2");
+    let ovx = signed_mul(clamp01(ox), "(W-w)/2");
+    let ovy = signed_mul(clamp01(oy), "(H-h)/2");
+    let crop_off = format!(
+        ":x='(iw-{w})/2{cx}':y='(ih-{h})/2{cy}'",
+        cx = signed_mul(clamp01(ox), &format!("(iw-{w})/2")),
+        cy = signed_mul(clamp01(oy), &format!("(ih-{h})/2")),
+    );
     match &spec.background {
         Background::Solid { color } => {
             // pad up to the LARGER of fg/canvas then crop centered: fg may
             // exceed the canvas when fit zoom > 1 (crop handles both ways).
             format!(
-                "{fg},pad='max(iw,{w})':'max(ih,{h})':(ow-iw)/2:(oh-ih)/2:{color},crop={w}:{h}"
+                "{fg},pad='max(iw,{w})':'max(ih,{h})':'(ow-iw)/2{px}':'(oh-ih)/2{py}':{color},crop={w}:{h}{crop_off}"
             )
         }
         Background::Blur { sigma, dim } => {
@@ -174,7 +189,7 @@ fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32) -> String {
                  [bg]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
                  crop={w}:{h},gblur=sigma={sigma},lutyuv=y='val*{lum}'[bg2];\
                  [fg]{fg}[fg2];\
-                 [bg2][fg2]overlay=(W-w)/2:(H-h)/2"
+                 [bg2][fg2]overlay='(W-w)/2{ovx}':'(H-h)/2{ovy}'"
             )
         }
         Background::Image { blur, .. } => {
@@ -184,7 +199,7 @@ fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32) -> String {
                 "[1:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
                  crop={w}:{h}{gb}[bg2];\
                  [0:v]{fg}[fg2];\
-                 [bg2][fg2]overlay=(W-w)/2:(H-h)/2"
+                 [bg2][fg2]overlay='(W-w)/2{ovx}':'(H-h)/2{ovy}'"
             )
         }
     }
@@ -669,7 +684,7 @@ mod tests {
     #[test]
     fn fit_solid_graph_letterboxes() {
         let g = filtergraph(
-            &spec(FitSpec::Fit { zoom: 1.0 }, Background::Solid {
+            &spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Solid {
                 color: "#101418".into(),
             }),
             1920,
@@ -685,14 +700,14 @@ mod tests {
     #[test]
     fn fit_blur_graph_splits_and_overlays() {
         let g = filtergraph(
-            &spec(FitSpec::Fit { zoom: 1.0 }, Background::Blur {
+            &spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Blur {
                 sigma: 20.0,
                 dim: 0.4,
             }),
             1920,
             1080,
         );
-        for part in ["split[fg][bg]", "gblur=sigma=20", "lutyuv=y='val*0.6'", "overlay=(W-w)/2"] {
+        for part in ["split[fg][bg]", "gblur=sigma=20", "lutyuv=y='val*0.6'", "overlay='(W-w)/2"] {
             assert!(g.contains(part), "missing {part} in {g}");
         }
     }
@@ -736,7 +751,7 @@ mod tests {
 
     #[test]
     fn bitrate_scales_with_area_fps_and_quality() {
-        let mut s = spec(FitSpec::Fit { zoom: 1.0 }, Background::Solid { color: "#000".into() });
+        let mut s = spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Solid { color: "#000".into() });
         let b1080 = bitrate_kbps(&s, 30.0);
         s.canvas = Canvas { width: 720, height: 1280 };
         assert!(bitrate_kbps(&s, 30.0) < b1080);
@@ -748,7 +763,7 @@ mod tests {
     #[test]
     fn args_have_progress_pipe_and_faststart() {
         let a = build_args(
-            &spec(FitSpec::Fit { zoom: 1.0 }, Background::Solid { color: "#000".into() }),
+            &spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Solid { color: "#000".into() }),
             &meta(),
             "h264_mf",
             Path::new("out.mp4"),
