@@ -38,6 +38,9 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
 
   const meta = item.meta!;
   const r = canvas.width / canvas.height;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const setSpec = useStudioStore((s) => s.setSpec);
 
   const layers = useMemo(() => {
     const cover = Math.max(canvas.width / meta.width, canvas.height / meta.height);
@@ -56,6 +59,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
       const slackY = Math.max(0, (hPct - 100) / 2);
       return {
         bg: null,
+        slackX,
+        slackY,
         fg: {
           width: `${wPct}%`,
           aspectRatio: vidRatio,
@@ -80,6 +85,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
     const slackY = (hPct * shrink - 100) / 2;
     const bPx = (spec.border[0] / canvas.height) * 100;
     return {
+      slackX,
+      slackY,
       bg:
         spec.background.kind === "blur"
           ? {
@@ -118,7 +125,36 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         style={{ containerType: "size" }}
       >
         <div
-          className="relative"
+          ref={stageRef}
+          className="relative cursor-grab active:cursor-grabbing touch-none"
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            const oxx = "offset_x" in spec.fit ? spec.fit.offset_x : 0;
+            const oyy = "offset_y" in spec.fit ? spec.fit.offset_y : 0;
+            drag.current = { x: e.clientX, y: e.clientY, ox: oxx, oy: oyy };
+            (e.target as HTMLElement).setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            const d = drag.current;
+            const el = stageRef.current;
+            if (!d || !el) return;
+            const r2 = el.getBoundingClientRect();
+            const dxPct = ((e.clientX - d.x) / r2.width) * 100;
+            const dyPct = ((e.clientY - d.y) / r2.height) * 100;
+            const sx = layers.slackX ?? 0;
+            const sy = layers.slackY ?? 0;
+            const nx = Math.abs(sx) > 0.5 ? d.ox - dxPct / sx : d.ox;
+            const ny = Math.abs(sy) > 0.5 ? d.oy - dyPct / sy : d.oy;
+            setSpec({
+              fit: {
+                ...spec.fit,
+                offset_x: Math.max(-1, Math.min(1, nx)),
+                offset_y: Math.max(-1, Math.min(1, ny)),
+              },
+            });
+          }}
+          onPointerUp={() => (drag.current = null)}
+          onPointerCancel={() => (drag.current = null)}
           style={{
             aspectRatio: `${canvas.width} / ${canvas.height}`,
             // cqw/cqh keep the canvas inside BOTH bounds without ever
