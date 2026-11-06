@@ -118,38 +118,45 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         style={{ containerType: "size" }}
       >
         <div
-          className="relative overflow-hidden rounded-md shadow-card"
+          className="relative"
           style={{
             aspectRatio: `${canvas.width} / ${canvas.height}`,
             // cqw/cqh keep the canvas inside BOTH bounds without ever
             // breaking its aspect-ratio (maxWidth alone could squash it).
             height: r >= 1 ? "auto" : `min(100%, ${(100 * canvas.height) / canvas.width}cqw)`,
             width: r >= 1 ? `min(100%, ${(100 * canvas.width) / canvas.height}cqh)` : "auto",
-            background: layers.solid ?? "#000",
           }}
         >
-          {layers.imageUrl && (
-            <img
-              src={layers.imageUrl}
-              alt=""
-              className="absolute size-full object-cover"
-              style={{ filter: layers.imageBlur ? `blur(${layers.imageBlur}px)` : undefined }}
-              draggable={false}
-            />
-          )}
-          {layers.bg && (
-            <video
-              key={`bg-${item.path}`}
-              src={effectiveSrc}
-              muted
-              playsInline
-              autoPlay
-              loop
-              className="absolute object-cover"
-              style={layers.bg}
-              onError={handleError}
-            />
-          )}
+          {/* Clipped group: everything that lives inside the frame. */}
+          <div
+            className="absolute inset-0 overflow-hidden rounded-md shadow-card"
+            style={{ background: layers.solid ?? "#000" }}
+          >
+            {layers.imageUrl && (
+              <img
+                src={layers.imageUrl}
+                alt=""
+                className="absolute size-full object-cover"
+                style={{ filter: layers.imageBlur ? `blur(${layers.imageBlur}px)` : undefined }}
+                draggable={false}
+              />
+            )}
+            {layers.bg && (
+              <video
+                key={`bg-${item.path}`}
+                src={effectiveSrc}
+                muted
+                playsInline
+                autoPlay
+                loop
+                className="absolute object-cover"
+                style={layers.bg}
+                onError={handleError}
+              />
+            )}
+          </div>
+          {/* The fg may bleed past the canvas edge — the outline below marks
+              the actual output frame so the crop boundary stays clear. */}
           <video
             key={`fg-${item.path}`}
             src={effectiveSrc}
@@ -168,6 +175,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               el.addEventListener("emptied", obs, { once: true });
             }}
           />
+          {/* Canvas boundary — always visible above the bleeding fg. */}
+          <div className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-inset ring-white/50" />
           {/* Guide overlays — preview only unless spec.guides.export */}
           {spec.guides.thirds && (
             <svg className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 3 3" preserveAspectRatio="none">
