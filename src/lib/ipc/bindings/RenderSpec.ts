@@ -21,4 +21,12 @@ border: [number, string], guides: Guides,
 /**
  * Optional picture-in-picture overlay video (reaction-video style).
  */
-overlay: OverlaySpec | null, export: ExportSpec, };
+overlay: OverlaySpec | null, 
+/**
+ * Source rotation 0/90/180/270 degrees clockwise.
+ */
+rotate: number, 
+/**
+ * Mirror the source horizontally.
+ */
+flip: boolean, export: ExportSpec, };

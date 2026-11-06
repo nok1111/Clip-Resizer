@@ -101,6 +101,8 @@ mod tests {
             canvas: Canvas { width: 1080, height: 1920 },
             fit: FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 },
             overlay: None,
+            rotate: 0,
+            flip: false,
             background: Background::Solid { color: "#000".into() },
             margin: 0.0,
             border: (0.0, "#fff".into()),

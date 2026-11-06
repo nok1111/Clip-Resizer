@@ -118,6 +118,24 @@ export function FitPanel() {
           ]}
           aria-label={t("studio.framing")}
         />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            title={t("studio.rotate")}
+            onClick={() => setSpec({ rotate: (spec.rotate + 90) % 360 })}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text hover:bg-bg cursor-pointer"
+          >
+            ⟳ {spec.rotate}°
+          </button>
+          <button
+            type="button"
+            title={t("studio.mirror")}
+            onClick={() => setSpec({ flip: !spec.flip })}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs cursor-pointer ${spec.flip ? "border-accent bg-accent/10 text-accent" : "border-border bg-bg-secondary text-text hover:bg-bg"}`}
+          >
+            ⇋ {t("studio.mirror")}
+          </button>
+        </div>
         {fill ? (
           <>
             <Range label={t("studio.zoom")} min={0.1} max={8} step={0.05} value={fill.zoom}

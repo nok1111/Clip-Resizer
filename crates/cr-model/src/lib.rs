@@ -275,6 +275,12 @@ pub struct RenderSpec {
     /// Optional picture-in-picture overlay video (reaction-video style).
     #[serde(default)]
     pub overlay: Option<OverlaySpec>,
+    /// Source rotation 0/90/180/270 degrees clockwise.
+    #[serde(default)]
+    pub rotate: u32,
+    /// Mirror the source horizontally.
+    #[serde(default)]
+    pub flip: bool,
     pub export: ExportSpec,
 }
 

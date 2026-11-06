@@ -81,6 +81,21 @@ pub fn pick_encoder(codec: VideoCodec, available: &[String]) -> Option<String> {
 pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
     let Canvas { width: w, height: h } = spec.canvas;
     let mut v = String::new();
+    // Transform first so downstream expressions see post-rotation dims.
+    if spec.flip {
+        v.push_str("hflip,");
+    }
+    match spec.rotate % 360 {
+        90 => v.push_str("transpose=1,"),
+        180 => v.push_str("transpose=2,transpose=2,"),
+        270 => v.push_str("transpose=2,"),
+        _ => {}
+    }
+    let (src_w, src_h) = if spec.rotate % 180 == 90 {
+        (src_h, src_w)
+    } else {
+        (src_w, src_h)
+    };
     match spec.fit {
         FitSpec::Fill {
             offset_x,
@@ -653,6 +668,8 @@ mod tests {
             margin: 0.0,
             border: (0.0, "#ffffff".into()),
             overlay: None,
+            rotate: 0,
+            flip: false,
             guides: cr_model::Guides {
                 safe: false,
                 thirds: false,

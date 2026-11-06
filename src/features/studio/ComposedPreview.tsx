@@ -38,26 +38,32 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
 
   const meta = item.meta!;
   const r = canvas.width / canvas.height;
+  const rot = ((spec.rotate % 360) + 360) % 360;
+  const rotSwap = rot === 90 || rot === 270;
+  const effW = rotSwap ? meta.height : meta.width;
+  const effH = rotSwap ? meta.width : meta.height;
   const stageRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const ovDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const setSpec = useStudioStore((s) => s.setSpec);
 
   const layers = useMemo(() => {
-    const cover = Math.max(canvas.width / meta.width, canvas.height / meta.height);
-    const fit = Math.min(canvas.width / meta.width, canvas.height / meta.height);
+    const cover = Math.max(canvas.width / effW, canvas.height / effH);
+    const fit = Math.min(canvas.width / effW, canvas.height / effH);
     const vidRatio = `${meta.width} / ${meta.height}`;
     // Position/sizing helper: element keeps the video's own aspect (width
     // + aspect-ratio, never independent w/h → no distortion is possible).
     const box = (scale: number) => {
       const wPct = (meta.width * scale * 100) / canvas.width;
       const hPct = (meta.height * scale * 100) / canvas.height;
-      return { wPct, hPct };
+      const vw = (effW * scale * 100) / canvas.width;
+      const vh = (effH * scale * 100) / canvas.height;
+      return { wPct, hPct, vw, vh };
     };
     if (spec.fit.kind === "fill" && spec.fit.zoom >= 0.999) {
-      const { wPct, hPct } = box(cover * spec.fit.zoom);
-      const slackX = Math.max(0, (wPct - 100) / 2);
-      const slackY = Math.max(0, (hPct - 100) / 2);
+      const { wPct, vw, vh } = box(cover * spec.fit.zoom);
+      const slackX = Math.max(0, (vw - 100) / 2);
+      const slackY = Math.max(0, (vh - 100) / 2);
       return {
         bg: null,
         slackX,
@@ -70,20 +76,20 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
           // visible window toward the right/bottom of the source.
           left: `${50 - spec.fit.offset_x * slackX}%`,
           top: `${50 - spec.fit.offset_y * slackY}%`,
-          transform: "translate(-50%,-50%)",
+          transform: `translate(-50%,-50%) rotate(${rot}deg) scaleX(${spec.flip ? -1 : 1})`,
         },
       };
     }
     // Fit, or zoomed-out Fill (zoom < 1): fg sits on the chosen background.
     const fgScale =
       spec.fit.kind === "fill" ? cover * spec.fit.zoom : fit * spec.fit.zoom;
-    const { wPct, hPct } = box(fgScale);
+    const { wPct, vw, vh } = box(fgScale);
     const shrink = spec.fit.kind === "fill" ? 1 : 1 - 2 * spec.margin;
     // Pan within the free space (letterbox) or the crop window (oversized).
     const oxx = "offset_x" in spec.fit ? spec.fit.offset_x : 0;
     const oyy = "offset_y" in spec.fit ? spec.fit.offset_y : 0;
-    const slackX = (wPct * shrink - 100) / 2;
-    const slackY = (hPct * shrink - 100) / 2;
+    const slackX = (vw * shrink - 100) / 2;
+    const slackY = (vh * shrink - 100) / 2;
     const bPx = (spec.border[0] / canvas.height) * 100;
     return {
       slackX,
@@ -111,13 +117,13 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         height: "auto",
         left: `${50 - oxx * slackX}%`,
         top: `${50 - oyy * slackY}%`,
-        transform: "translate(-50%,-50%)",
+        transform: `translate(-50%,-50%) rotate(${rot}deg) scaleX(${spec.flip ? -1 : 1})`,
         boxSizing: "border-box" as const,
         border: spec.border[0] > 0 ? `${bPx}cqh solid ${spec.border[1]}` : undefined,
       },
       solid: spec.background.kind === "solid" ? spec.background.color : undefined,
     };
-  }, [spec, canvas, meta]);
+  }, [spec, canvas, meta, effW, effH, rot]);
 
   return (
     <div className="flex size-full flex-col">

@@ -119,7 +119,9 @@
     "overlayPick": "Escolher vídeo…",
     "overlayNone": "Sem overlay",
     "overlayOff": "Remover",
-    "overlayScale": "Escala"
+    "overlayScale": "Escala",
+    "rotate": "Girar",
+    "mirror": "Espelho"
   },
   "settings": {
     "title": "Configurações",
