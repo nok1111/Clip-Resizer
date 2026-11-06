@@ -116,12 +116,14 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
             offset_x,
             offset_y,
         } => {
-            // Foreground box: canvas minus margin (each side), times zoom —
-            // zoom > 1 grows the fg past the canvas (background layers crop it).
+            // Exact fg dims in Rust (fit-scale * margin-shrink * zoom) — no
+            // FFmpeg aspect heuristics, so zoom > 1 upscales without a cap.
             let m = spec.margin.clamp(0.0, 0.4);
             let z = zoom.clamp(0.05, 8.0);
-            let iw = ((w as f64 * (1.0 - 2.0 * m) * z) as u32) & !1;
-            let ih = ((h as f64 * (1.0 - 2.0 * m) * z) as u32) & !1;
+            let fit_s =
+                (w as f64 / src_w as f64).min(h as f64 / src_h as f64) * (1.0 - 2.0 * m) * z;
+            let iw = ((src_w as f64 * fit_s).max(2.0) as u32) & !1;
+            let ih = ((src_h as f64 * fit_s).max(2.0) as u32) & !1;
             v.push_str(&fit_graph(spec, w, h, iw, ih, offset_x, offset_y));
         }
     }
@@ -161,7 +163,8 @@ fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32, ox: f64, oy: f
     } else {
         String::new()
     };
-    let fg = format!("scale={iw}:{ih}:force_original_aspect_ratio=decrease:flags=lanczos{borderpad}");
+    // iw/ih are the exact target dims — plain scale, no aspect heuristic.
+    let fg = format!("scale={iw}:{ih}:flags=lanczos{borderpad}");
     // Center + offset*slack — same convention as the Fill crop: positive
     // offset pans toward the right/bottom of the frame.
     let px = signed_mul(clamp01(ox), "(ow-iw)/2");
@@ -690,7 +693,8 @@ mod tests {
             1920,
             1080,
         );
-        assert!(g.contains("force_original_aspect_ratio=decrease"));
+        // fg dims are exact (fit-scale * shrink * zoom computed in Rust)
+        assert!(g.contains("scale=1080:608") || g.contains("scale=1080:606"));
         // pad-then-crop handles fg both smaller and larger than the canvas
         assert!(g.contains("pad='max(iw,1080)':'max(ih,1920)'"));
         assert!(g.contains("crop=1080:1920"));

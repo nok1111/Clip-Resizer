@@ -113,15 +113,18 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
 
   return (
     <div className="flex size-full flex-col">
-      <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+      <div
+        className="flex min-h-0 flex-1 items-center justify-center p-4"
+        style={{ containerType: "size" }}
+      >
         <div
           className="relative overflow-hidden rounded-md shadow-card"
           style={{
             aspectRatio: `${canvas.width} / ${canvas.height}`,
-            height: r >= 1 ? "auto" : "100%",
-            width: r >= 1 ? "100%" : "auto",
-            maxWidth: "100%",
-            maxHeight: "100%",
+            // cqw/cqh keep the canvas inside BOTH bounds without ever
+            // breaking its aspect-ratio (maxWidth alone could squash it).
+            height: r >= 1 ? "auto" : `min(100%, ${(100 * canvas.height) / canvas.width}cqw)`,
+            width: r >= 1 ? `min(100%, ${(100 * canvas.width) / canvas.height}cqh)` : "auto",
             background: layers.solid ?? "#000",
           }}
         >
