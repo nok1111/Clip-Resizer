@@ -1,7 +1,4 @@
-import { useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
-import * as lucideIcons from "lucide-react";
-import { ipc } from "@/lib/ipc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -410,110 +407,6 @@ export function OverlayPanel() {
               onChange={(offsetX) => setSpec({ overlay: { ...ov, offsetX } })} />
             <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02} value={ov.offsetY}
               onChange={(offsetY) => setSpec({ overlay: { ...ov, offsetY } })} />
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-const STICKER_ICONS = [
-  "Heart", "ThumbsUp", "ThumbsDown", "Laugh", "Frown", "Star",
-  "Zap", "Flame", "Angry", "Smile", "Meh", "Eye",
-  "Bell", "BellRing", "Check", "X", "Play", "Pause",
-  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "AlertTriangle", "Sparkles",
-] as const;
-
-async function rasterizeIcon(name: string, color: string): Promise<ArrayBuffer> {
-  const { createElement } = await import("react");
-  const { flushSync } = await import("react-dom");
-  const { createRoot } = await import("react-dom/client");
-  const icons = (await import("lucide-react")) as unknown as Record<string, FC<{ size?: number; color?: string }>>;
-  const Icon = icons[name];
-  if (!Icon) throw new Error(`icon ${name} not found`);
-  const div = document.createElement("div");
-  flushSync(() => createRoot(div).render(createElement(Icon, { size: 256, color })));
-  const svg = div.querySelector("svg")?.outerHTML;
-  if (!svg) throw new Error("icon render failed");
-  const img = new Image();
-  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
-  const c = document.createElement("canvas");
-  c.width = c.height = 256;
-  c.getContext("2d")!.drawImage(img, 0, 0, 256, 256);
-  const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/png"));
-  if (!blob) throw new Error("toBlob failed");
-  return blob.arrayBuffer();
-}
-
-export function StickerPanel() {
-  const { t } = useTranslation();
-  const spec = useStudioStore((s) => s.spec);
-  const setSpec = useStudioStore((s) => s.setSpec);
-  const st = spec.sticker;
-  const [busy, setBusy] = useState(false);
-  const place = (path: string) =>
-    setSpec({ sticker: { path, scale: st?.scale ?? 0.2, offsetX: st?.offsetX ?? -0.7, offsetY: st?.offsetY ?? -0.7 } });
-  const pickIcon = async (name: string) => {
-    setBusy(true);
-    try {
-      const buf = await rasterizeIcon(name, "#ffffff");
-      const p = await ipc.saveStickerPng(`icon_${name}`, Array.from(new Uint8Array(buf)));
-      place(p);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const pickImage = async () => {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const p = await open({ filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] }] });
-    if (typeof p === "string") place(p);
-  };
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{t("studio.sticker")}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="grid grid-cols-6 gap-1">
-          {STICKER_ICONS.map((n) => {
-            const Ico = (lucideIcons as unknown as Record<string, FC<{ size?: number }>>)[n];
-            return (
-              <button
-                key={n}
-                type="button"
-                disabled={busy}
-                title={n}
-                onClick={() => void pickIcon(n)}
-                className="flex aspect-square items-center justify-center rounded-md border border-border bg-bg-secondary text-text-secondary hover:border-accent hover:text-text cursor-pointer disabled:opacity-40"
-              >
-                {Ico ? <Ico size={16} /> : n[0]}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => void pickImage()}
-            className="rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-xs text-text hover:bg-bg cursor-pointer">
-            {t("studio.stickerImport")}
-          </button>
-          <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={st?.path ?? ""}>
-            {st?.path ? st.path.split(/[\\/]/).pop() : t("studio.stickerNone")}
-          </span>
-          {st && (
-            <Button variant="ghost" size="sm" onClick={() => setSpec({ sticker: null })}>
-              {t("studio.overlayOff")}
-            </Button>
-          )}
-        </div>
-        {st && (
-          <>
-            <Range label={t("studio.overlayScale")} min={0.05} max={1} step={0.05} value={st.scale}
-              onChange={(scale) => setSpec({ sticker: { ...st, scale } })} />
-            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02} value={st.offsetX}
-              onChange={(offsetX) => setSpec({ sticker: { ...st, offsetX } })} />
-            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02} value={st.offsetY}
-              onChange={(offsetY) => setSpec({ sticker: { ...st, offsetY } })} />
           </>
         )}
       </CardContent>

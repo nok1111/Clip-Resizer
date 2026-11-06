@@ -76,7 +76,6 @@ pub fn run() {
             commands::queue::list_presets,
             commands::queue::delete_preset,
             commands::jobs::preview_proxy,
-            commands::jobs::save_sticker_png,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Clip Resizer");

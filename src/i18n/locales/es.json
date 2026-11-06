@@ -119,10 +119,7 @@
     "overlayPick": "Elegir video…",
     "overlayNone": "Sin overlay",
     "overlayOff": "Quitar",
-    "overlayScale": "Escala",
-    "sticker": "Sticker",
-    "stickerImport": "Importar imagen…",
-    "stickerNone": "Sin sticker"
+    "overlayScale": "Escala"
   },
   "settings": {
     "title": "Ajustes",

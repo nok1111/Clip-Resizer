@@ -90,8 +90,6 @@ export const ipc = {
   },
   cancelRender: () => invoke<boolean>("cancel_render"),
   previewProxy: (path: string) => invoke<string>("preview_proxy", { path }),
-  saveStickerPng: (name: string, bytes: number[]) =>
-    invoke<string>("save_sticker_png", { name, bytes }),
   enqueueRender: (specs: RenderSpec[], outputDir: string, conflict: ConflictPolicy, onEvent: (e: QueueEvent) => void) => {
     const channel = new Channel<QueueEvent>();
     channel.onmessage = onEvent;

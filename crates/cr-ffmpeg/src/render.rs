@@ -141,26 +141,6 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
              [base][ovr]overlay='(W-w)*{px:.4}':'(H-h)*{py:.4}'"
         ));
     }
-    // Sticker: still image composited on top (last input index).
-    if let Some(st) = &spec.sticker {
-        let mut idx = 1usize;
-        if matches!(spec.fit, FitSpec::Fit { .. })
-            && matches!(spec.background, Background::Image { .. })
-        {
-            idx += 1;
-        }
-        if spec.overlay.is_some() {
-            idx += 1;
-        }
-        let wf = st.scale.clamp(0.05, 1.0);
-        let px = (1.0 + st.offset_x.clamp(-1.0, 1.0)) / 2.0;
-        let py = (1.0 + st.offset_y.clamp(-1.0, 1.0)) / 2.0;
-        v.push_str("[base2]");
-        v.push_str(&format!(
-            ";[{idx}:v]scale=trunc({w}*{wf:.4}/2)*2:-2,format=rgba[stk];\
-             [base2][stk]overlay='(W-w)*{px:.4}':'(H-h)*{py:.4}'"
-        ));
-    }
     // No fps filter when keeping the source rate — it would be a no-op
     // anyway (and "source" is not a valid fps constant).
     if let Some(fps) = spec.export.fps {
@@ -341,10 +321,6 @@ pub fn build_args(
     // Overlay video input (index 2 when an image bg exists, else 1).
     if let Some(ov) = &spec.overlay {
         args.extend(["-i".into(), ov.path.clone()]);
-    }
-    // Sticker image input (always the last input).
-    if let Some(st) = &spec.sticker {
-        args.extend(["-loop".into(), "1".into(), "-i".into(), st.path.clone()]);
     }
     args.extend([
         "-filter_complex".into(),
@@ -591,9 +567,6 @@ pub fn preview_frame(
     if let Some(ov) = &spec.overlay {
         cmd.args(["-i".into(), ov.path.clone()]);
     }
-    if let Some(st) = &spec.sticker {
-        cmd.args(["-loop".into(), "1".into(), "-i".into(), st.path.clone()]);
-    }
     cmd.args([
         "-filter_complex".into(),
         filtergraph(spec, meta.width, meta.height),
@@ -680,7 +653,6 @@ mod tests {
             margin: 0.0,
             border: (0.0, "#ffffff".into()),
             overlay: None,
-            sticker: None,
             guides: cr_model::Guides {
                 safe: false,
                 thirds: false,

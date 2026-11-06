@@ -275,9 +275,6 @@ pub struct RenderSpec {
     /// Optional picture-in-picture overlay video (reaction-video style).
     #[serde(default)]
     pub overlay: Option<OverlaySpec>,
-    /// Optional still image / icon on top (sticker); same shape as overlay.
-    #[serde(default)]
-    pub sticker: Option<OverlaySpec>,
     pub export: ExportSpec,
 }
 
