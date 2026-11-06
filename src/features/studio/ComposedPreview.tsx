@@ -154,25 +154,6 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 onError={handleError}
               />
             )}
-            {/* PiP overlay video — lives inside the frame. */}
-            {spec.overlay?.path && (
-              <video
-                key={`ov-${spec.overlay.path}`}
-                src={convertFileSrc(spec.overlay.path)}
-                muted
-                playsInline
-                autoPlay
-                loop
-                className="absolute object-contain"
-                style={{
-                  width: `${spec.overlay.scale * 100}%`,
-                  left: `${50 + (spec.overlay.offsetX * (100 - spec.overlay.scale * 100)) / 2}%`,
-                  top: `${50 + (spec.overlay.offsetY * (100 - spec.overlay.scale * 100)) / 2}%`,
-                  transform: "translate(-50%,-50%)",
-                }}
-                onError={() => undefined}
-              />
-            )}
           </div>
           {/* The fg may bleed past the canvas edge — the outline below marks
               the actual output frame so the crop boundary stays clear. */}
@@ -194,6 +175,27 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               el.addEventListener("emptied", obs, { once: true });
             }}
           />
+          {/* PiP overlay — clipped to the frame but above the fg. */}
+          {spec.overlay?.path && (
+            <div className="absolute inset-0 overflow-hidden">
+              <video
+                key={`ov-${spec.overlay.path}`}
+                src={convertFileSrc(spec.overlay.path)}
+                muted
+                playsInline
+                autoPlay
+                loop
+                className="absolute object-contain"
+                style={{
+                  width: `${spec.overlay.scale * 100}%`,
+                  left: `${50 + (spec.overlay.offsetX * (100 - spec.overlay.scale * 100)) / 2}%`,
+                  top: `${50 + (spec.overlay.offsetY * (100 - spec.overlay.scale * 100)) / 2}%`,
+                  transform: "translate(-50%,-50%)",
+                }}
+                onError={() => undefined}
+              />
+            </div>
+          )}
           {/* Canvas boundary — always visible above the bleeding fg. */}
           <div className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-inset ring-white/50" />
           {/* Guide overlays — preview only unless spec.guides.export */}
