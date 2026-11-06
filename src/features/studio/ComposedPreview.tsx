@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { FastForward, Pause, Play, Rewind, Volume2, VolumeX } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { ipc, videoUrl } from "@/lib/ipc";
@@ -13,6 +14,13 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const spec = useStudioStore((s) => s.spec);
   const canvas = specCanvas(spec);
   const [time, setTime] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [playing, setPlaying] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [dur, setDur] = useState(0);
+  const fmtT = (v: number) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, "0")}`;
+  const skip = (d: number) => { const el = videoRef.current; if (el) el.currentTime += d; };
   const [verify, setVerify] = useState(false);
   const previewFrameUrl = useStudioStore((s) => s.previewFrameUrl);
   const verifyFrame = useStudioStore((s) => s.verifyFrame);
@@ -208,11 +216,15 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
             playsInline
             autoPlay
             loop
-            muted={layers.bg != null}
+            muted={muted}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onLoadedMetadata={(e) => { setDur(e.currentTarget.duration); e.currentTarget.volume = volume; }}
             className="absolute object-fill"
             style={layers.fg}
             onError={handleError}
             ref={(el) => {
+              videoRef.current = el;
               if (!el) return;
               const id = setInterval(() => setTime(el.currentTime), 250);
               const obs = () => clearInterval(id);
@@ -374,6 +386,29 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
           className="rounded-md border border-border bg-bg-secondary px-2 py-1 text-xs text-text-secondary hover:text-text cursor-pointer"
         >
           {verify ? "live" : "verify"}
+        </button>
+      </div>
+      <div className="flex items-center gap-1 border-t border-border px-2 py-1">
+        <button type="button" title={t("player.back")} onClick={() => skip(-10)}
+          className="rounded p-1 text-text-secondary hover:text-text cursor-pointer"><Rewind size={15} /></button>
+        <button type="button" title={playing ? t("player.pause") : t("player.play")}
+          onClick={() => { const el = videoRef.current; if (!el) return; if (el.paused) void el.play(); else el.pause(); }}
+          className="rounded p-1 text-text hover:text-accent cursor-pointer">
+          {playing ? <Pause size={15} /> : <Play size={15} />}
+        </button>
+        <button type="button" title={t("player.fwd")} onClick={() => skip(10)}
+          className="rounded p-1 text-text-secondary hover:text-text cursor-pointer"><FastForward size={15} /></button>
+        <span className="ml-1 text-[11px] text-text-secondary tabular-nums">{fmtT(time)} / {fmtT(dur)}</span>
+        <input
+          type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume}
+          title={t("player.volume")}
+          onChange={(e) => { const v = Number(e.target.value); setVolume(v); setMuted(v === 0); const el = videoRef.current; if (el) { el.volume = v; el.muted = v === 0; } }}
+          className="ml-auto w-20 accent-accent"
+        />
+        <button type="button" title={muted ? t("player.unmute") : t("player.mute")}
+          onClick={() => { const m = !muted; setMuted(m); const el = videoRef.current; if (el) el.muted = m; }}
+          className="rounded p-1 text-text-secondary hover:text-text cursor-pointer">
+          {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
         </button>
       </div>
     </div>

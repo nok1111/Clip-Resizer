@@ -223,5 +223,14 @@
   "history": {
     "empty": "Aún no hay renders",
     "emptyHint": "Las exportaciones terminadas aparecen aquí"
+  },
+  "player": {
+    "play": "Reproducir",
+    "pause": "Pausa",
+    "back": "Atrás 10s",
+    "fwd": "Adelante 10s",
+    "volume": "Volumen",
+    "mute": "Silenciar",
+    "unmute": "Sonido"
   }
 }
