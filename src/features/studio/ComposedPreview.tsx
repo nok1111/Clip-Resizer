@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { FastForward, Pause, Play, Rewind, Volume2, VolumeX } from "lucide-react";
+import { FastForward, Maximize, Pause, Play, Rewind, Volume2, VolumeX } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { ipc, videoUrl } from "@/lib/ipc";
@@ -21,6 +21,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const [dur, setDur] = useState(0);
   const fmtT = (v: number) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, "0")}`;
   const skip = (d: number) => { const el = videoRef.current; if (el) el.currentTime += d; };
+  const togglePlay = () => { const el = videoRef.current; if (!el) return; if (el.paused) void el.play(); else el.pause(); };
   const [verify, setVerify] = useState(false);
   const previewFrameUrl = useStudioStore((s) => s.previewFrameUrl);
   const verifyFrame = useStudioStore((s) => s.verifyFrame);
@@ -351,65 +352,68 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               draggable={false}
             />
           )}
+          {/* Centered play affordance — circle is decorative; click resumes. */}
+          {!playing && (
+            <button
+              type="button"
+              onClick={togglePlay}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="absolute inset-0 z-20 flex items-center justify-center cursor-pointer"
+              aria-label={t("player.play")}
+            >
+              <span className="pointer-events-none flex size-16 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
+                <Play className="ml-1 size-7 fill-white text-white" />
+              </span>
+            </button>
+          )}
+          {/* Player bar — floats over the video bottom. */}
+          <div
+            className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-8"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <button type="button" title={t("player.back")} onClick={() => skip(-10)}
+              className="rounded p-1 text-white/80 hover:text-white cursor-pointer"><Rewind size={15} /></button>
+            <button type="button" title={playing ? t("player.pause") : t("player.play")} onClick={togglePlay}
+              className="rounded p-1 text-white hover:text-white cursor-pointer">
+              {playing ? <Pause size={15} /> : <Play size={15} />}
+            </button>
+            <button type="button" title={t("player.fwd")} onClick={() => skip(10)}
+              className="rounded p-1 text-white/80 hover:text-white cursor-pointer"><FastForward size={15} /></button>
+            <input
+              type="range" min={0} max={dur || meta.durationMs / 1000} step={0.1} value={time}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                const el = videoRef.current;
+                if (el) el.currentTime = v;
+                setTime(v);
+              }}
+              className="h-1.5 flex-1 cursor-pointer accent-accent"
+              aria-label="timeline"
+            />
+            <span className="text-[11px] tabular-nums text-white/80">{fmtT(time)} / {fmtT(dur)}</span>
+            <button type="button" title={muted ? t("player.unmute") : t("player.mute")}
+              onClick={() => { const m = !muted; setMuted(m); const el = videoRef.current; if (el) el.muted = m; }}
+              className="rounded p-1 text-white/80 hover:text-white cursor-pointer">
+              {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </button>
+            <input
+              type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume}
+              title={t("player.volume")}
+              onChange={(e) => { const v = Number(e.target.value); setVolume(v); setMuted(v === 0); const el = videoRef.current; if (el) { el.volume = v; el.muted = v === 0; } }}
+              className="w-14 accent-accent"
+            />
+            <button
+              type="button"
+              onClick={() => { const next = !verify; setVerify(next); if (next) void verifyFrame(time); }}
+              className="rounded px-1.5 py-0.5 text-[11px] text-white/80 hover:text-white cursor-pointer"
+            >
+              {verify ? "live" : "verify"}
+            </button>
+            <button type="button" title="fullscreen"
+              onClick={() => { const el = stageRef.current; if (el?.requestFullscreen) void el.requestFullscreen(); }}
+              className="rounded p-1 text-white/80 hover:text-white cursor-pointer"><Maximize size={15} /></button>
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-2 px-4 pb-3">
-        <input
-          type="range"
-          min={0}
-          max={meta.durationMs / 1000}
-          step={0.1}
-          value={time}
-          onChange={(e) => {
-            const t = Number(e.target.value);
-            setTime(t);
-            document
-              .querySelectorAll<HTMLVideoElement>("video")
-              .forEach((v) => {
-                v.currentTime = t;
-                v.pause();
-              });
-          }}
-          className="h-1.5 flex-1 cursor-pointer accent-[var(--cr-accent)]"
-          aria-label="timeline"
-        />
-        <span className="text-xs tabular-nums text-text-secondary">
-          {time.toFixed(1)}s
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            const next = !verify;
-            setVerify(next);
-            if (next) void verifyFrame(time);
-          }}
-          className="rounded-md border border-border bg-bg-secondary px-2 py-1 text-xs text-text-secondary hover:text-text cursor-pointer"
-        >
-          {verify ? "live" : "verify"}
-        </button>
-      </div>
-      <div className="flex items-center gap-1 border-t border-border px-2 py-1">
-        <button type="button" title={t("player.back")} onClick={() => skip(-10)}
-          className="rounded p-1 text-text-secondary hover:text-text cursor-pointer"><Rewind size={15} /></button>
-        <button type="button" title={playing ? t("player.pause") : t("player.play")}
-          onClick={() => { const el = videoRef.current; if (!el) return; if (el.paused) void el.play(); else el.pause(); }}
-          className="rounded p-1 text-text hover:text-accent cursor-pointer">
-          {playing ? <Pause size={15} /> : <Play size={15} />}
-        </button>
-        <button type="button" title={t("player.fwd")} onClick={() => skip(10)}
-          className="rounded p-1 text-text-secondary hover:text-text cursor-pointer"><FastForward size={15} /></button>
-        <span className="ml-1 text-[11px] text-text-secondary tabular-nums">{fmtT(time)} / {fmtT(dur)}</span>
-        <input
-          type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume}
-          title={t("player.volume")}
-          onChange={(e) => { const v = Number(e.target.value); setVolume(v); setMuted(v === 0); const el = videoRef.current; if (el) { el.volume = v; el.muted = v === 0; } }}
-          className="ml-auto w-20 accent-accent"
-        />
-        <button type="button" title={muted ? t("player.unmute") : t("player.mute")}
-          onClick={() => { const m = !muted; setMuted(m); const el = videoRef.current; if (el) el.muted = m; }}
-          className="rounded p-1 text-text-secondary hover:text-text cursor-pointer">
-          {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-        </button>
       </div>
     </div>
   );

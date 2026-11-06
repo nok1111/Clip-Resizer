@@ -1,20 +1,18 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Clapperboard, FolderOpen, Play, Square } from "lucide-react";
+import { AlertTriangle, Clapperboard, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { aspectLabel, formatBytes, formatDurationMs, formatFps } from "@/lib/format";
 import { ipc } from "@/lib/ipc";
 import { useStudioStore } from "@/stores/studio";
 import { ComposedPreview } from "./ComposedPreview";
-import { ExportPanel, FitPanel, FormatPanel, GuidesPanel, OverlayPanel, WatermarkPanel } from "./panels";
+import { ExportPanel, FitPanel, FormatPanel, GuidesPanel, OptionsPanel, OverlayPanel, WatermarkPanel } from "./panels";
 
 export function PreviewPane() {
   const { t } = useTranslation();
   const item = useStudioStore((s) => s.items.find((i) => i.path === s.selected));
   const render = useStudioStore((s) => s.render);
-  const startRender = useStudioStore((s) => s.startRender);
-  const cancelRender = useStudioStore((s) => s.cancelRender);
   const [playErrorPath, setPlayErrorPath] = useState<string | null>(null);
   const playError = item != null && playErrorPath === item.path;
 
@@ -56,32 +54,11 @@ export function PreviewPane() {
 
       <div className="max-h-[46%] overflow-y-auto border-t border-border">
         {item && (
-          <div className="grid gap-3 p-4 md:grid-cols-3">
+          <div className="grid gap-3 p-4 md:grid-cols-2">
             <FormatPanel />
             <div className="flex flex-col gap-3">
-              <FitPanel />
-              <OverlayPanel />
-              <WatermarkPanel />
-              <GuidesPanel />
-            </div>
-            <div className="flex flex-col gap-3">
-              <ExportPanel />
-              <div className="flex gap-2">
-                {render.running ? (
-                  <Button variant="danger" className="flex-1" onClick={() => void cancelRender()}>
-                    <Square />
-                    {t("render.cancel")}
-                  </Button>
-                ) : (
-                  <Button
-                    className="flex-1"
-                    disabled={item.status !== "ready"}
-                    onClick={() => void startRender()}
-                  >
-                    <Play />
-                    {t("render.export")}
-                  </Button>
-                )}
+              <OptionsPanel />
+              <div className="flex items-center gap-2">
                 <Button
                   variant="secondary"
                   size="icon"
@@ -90,18 +67,30 @@ export function PreviewPane() {
                 >
                   <FolderOpen />
                 </Button>
+                {render.error && <p className="text-xs text-danger">{render.error}</p>}
+                {render.cancelled && <p className="text-xs text-warning">{t("render.cancelled")}</p>}
+                {render.skipped && <p className="text-xs text-warning">{t("render.skipped")}</p>}
+                {render.donePath && (
+                  <p className="min-w-0 flex-1 break-all text-xs text-success">
+                    {t("render.done", { bytes: formatBytes(render.doneBytes) })}
+                    <span className="block truncate text-text-secondary">{render.donePath}</span>
+                  </p>
+                )}
               </div>
-              {render.error && <p className="text-xs text-danger">{render.error}</p>}
-              {render.cancelled && <p className="text-xs text-warning">{t("render.cancelled")}</p>}
-              {render.skipped && <p className="text-xs text-warning">{t("render.skipped")}</p>}
-              {render.donePath && (
-                <p className="break-all text-xs text-success">
-                  {t("render.done", { bytes: formatBytes(render.doneBytes) })}
-                  <br />
-                  <span className="text-text-secondary">{render.donePath}</span>
-                </p>
-              )}
             </div>
+          </div>
+        )}
+        {item && (
+          <div className="grid gap-3 px-4 pb-4 md:grid-cols-2 xl:grid-cols-4">
+            <FitPanel />
+            <OverlayPanel />
+            <WatermarkPanel />
+            <GuidesPanel />
+          </div>
+        )}
+        {item && (
+          <div className="px-4 pb-4">
+            <ExportPanel />
           </div>
         )}
         {item?.meta && <MetaStrip meta={item.meta} size={item.size} />}

@@ -59,39 +59,46 @@ export function StudioPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title={t("nav.studio")} description={t("modules.studio")} />
+      <PageHeader
+        title={t("nav.studio")}
+        description={t("modules.studio")}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="gradient" onClick={() => void addFiles()} disabled={busy || !ffmpegOk}>
+              <FilePlus2 />
+              {t("studio.addVideos")}
+            </Button>
+            <Button variant="secondary" onClick={() => void addFolder()} disabled={busy || !ffmpegOk}>
+              <FolderPlus />
+              {t("studio.addFolder")}
+            </Button>
+            <Button variant="ghost" onClick={s.clear} disabled={busy || s.items.length === 0}>
+              <Trash2 />
+              {t("studio.clear")}
+            </Button>
+            <span className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-text-secondary" aria-live="polite">
+              {busy ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {t("studio.scanning")}
+                </span>
+              ) : (
+                s.scanNotice ? (
+                  <>
+                    {t("studio.added", { count: s.scanNotice.added })}
+                    {s.scanNotice.duplicates > 0 && ` · ${t("studio.duplicates", { count: s.scanNotice.duplicates })}`}
+                    {s.scanNotice.rejected > 0 && ` · ${t("studio.unsupported", { count: s.scanNotice.rejected })}`}
+                    {s.scanNotice.truncated && ` · ${t("studio.truncated")}`}
+                  </>
+                ) : (
+                  t("studio.added", { count: s.items.length })
+                )
+              )}
+            </span>
+          </div>
+        }
+      />
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-8 pb-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={() => void addFiles()} disabled={busy || !ffmpegOk}>
-            <FilePlus2 />
-            {t("studio.addVideos")}
-          </Button>
-          <Button variant="secondary" onClick={() => void addFolder()} disabled={busy || !ffmpegOk}>
-            <FolderPlus />
-            {t("studio.addFolder")}
-          </Button>
-          <Button variant="ghost" onClick={s.clear} disabled={busy || s.items.length === 0}>
-            <Trash2 />
-            {t("studio.clear")}
-          </Button>
-          <span className="ml-auto text-xs text-text-secondary" aria-live="polite">
-            {busy ? (
-              <span className="flex items-center gap-1.5">
-                <Loader2 className="size-3.5 animate-spin" />
-                {t("studio.scanning")}
-              </span>
-            ) : (
-              s.scanNotice && (
-                <>
-                  {t("studio.added", { count: s.scanNotice.added })}
-                  {s.scanNotice.duplicates > 0 && ` · ${t("studio.duplicates", { count: s.scanNotice.duplicates })}`}
-                  {s.scanNotice.rejected > 0 && ` · ${t("studio.unsupported", { count: s.scanNotice.rejected })}`}
-                  {s.scanNotice.truncated && ` · ${t("studio.truncated")}`}
-                </>
-              )
-            )}
-          </span>
-        </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(380px,5fr)_minmax(420px,7fr)]">
           <Card className={cn("relative min-h-0 overflow-hidden p-0", dragging && "ring-2 ring-accent")}>

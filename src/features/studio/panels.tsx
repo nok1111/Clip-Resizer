@@ -5,8 +5,25 @@ import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { Film, Monitor, SlidersHorizontal, Smartphone, Square, type LucideIcon } from "lucide-react";
 import type { AspectPreset, AudioMode, QualityPreset, VideoCodec } from "@/lib/ipc";
 import { ASPECT_CANVAS, useStudioStore, specCanvas } from "@/stores/studio";
+
+const PRESET_META: Record<Exclude<AspectPreset, "custom">, { icon: LucideIcon; sub: string }> = {
+  "9:16": { icon: Smartphone, sub: "vertical" },
+  "1:1": { icon: Square, sub: "square" },
+  "4:5": { icon: Smartphone, sub: "portrait" },
+  "16:9": { icon: Monitor, sub: "hd" },
+  "4:3": { icon: Monitor, sub: "classic" },
+  "3:4": { icon: Smartphone, sub: "portrait" },
+};
+
+const RESOLUTIONS: Array<{ key: string; h: number }> = [
+  { key: "r4k", h: 2160 },
+  { key: "r1080", h: 1080 },
+  { key: "r720", h: 720 },
+  { key: "r540", h: 540 },
+];
 
 export function FormatPanel() {
   const { t } = useTranslation();
@@ -14,77 +31,177 @@ export function FormatPanel() {
   const setSpec = useStudioStore((s) => s.setSpec);
   const canvas = specCanvas(spec);
   const presets = Object.keys(ASPECT_CANVAS) as Exclude<AspectPreset, "custom">[];
+  const resKey = spec.preset === "custom" ? "custom" : String(canvas.height);
+
+  const setResolution = (h: number) => {
+    const ratio = canvas.width / canvas.height;
+    const w = Math.round(((h * ratio) / 2)) * 2;
+    setSpec({ preset: "custom", custom: { width: w, height: h } });
+  };
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle>{t("studio.format")}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Film className="size-4 text-accent" />
+          {t("studio.format")}
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid grid-cols-4 gap-1.5">
-          {presets.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setSpec({ preset: p })}
-              className={cn(
-                "flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[11px] transition-colors cursor-pointer",
-                spec.preset === p
-                  ? "border-accent bg-accent/10 text-text"
-                  : "border-border bg-bg-secondary text-text-secondary hover:text-text",
-              )}
-            >
-              <span
-                className="rounded-[3px] border border-current opacity-70"
-                style={{
-                  width: Math.max(10, Math.round((18 * ASPECT_CANVAS[p].width) / Math.max(ASPECT_CANVAS[p].width, ASPECT_CANVAS[p].height))),
-                  height: Math.max(10, Math.round((18 * ASPECT_CANVAS[p].height) / Math.max(ASPECT_CANVAS[p].width, ASPECT_CANVAS[p].height))),
-                }}
-              />
-              {p}
-            </button>
-          ))}
+        <div className="grid grid-cols-3 gap-2">
+          {presets.map((p) => {
+            const Meta = PRESET_META[p];
+            const active = spec.preset === p;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setSpec({ preset: p })}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 transition-all cursor-pointer",
+                  active
+                    ? "border-accent bg-accent/15 text-text shadow-[0_0_12px_-2px_var(--cr-accent)]"
+                    : "border-border bg-bg-secondary text-text-secondary hover:border-accent/50 hover:text-text",
+                )}
+              >
+                <Meta.icon className={cn("size-5", active && "text-accent")} />
+                <span className="text-xs font-medium">{p}</span>
+                <span className="text-[10px] text-text-secondary">{t(`studio.sub.${Meta.sub}`)}</span>
+              </button>
+            );
+          })}
           <button
             type="button"
             onClick={() => setSpec({ preset: "custom" })}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 rounded-lg border px-1.5 py-2 text-[11px] transition-colors cursor-pointer",
+              "flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 transition-all cursor-pointer",
               spec.preset === "custom"
-                ? "border-accent bg-accent/10 text-text"
-                : "border-border bg-bg-secondary text-text-secondary hover:text-text",
+                ? "border-accent bg-accent/15 text-text shadow-[0_0_12px_-2px_var(--cr-accent)]"
+                : "border-border bg-bg-secondary text-text-secondary hover:border-accent/50 hover:text-text",
             )}
           >
-            {t("studio.custom")}
+            <SlidersHorizontal className={cn("size-5", spec.preset === "custom" && "text-accent")} />
+            <span className="text-xs font-medium">{t("studio.custom")}</span>
+            <span className="text-[10px] text-text-secondary">{canvas.width}×{canvas.height}</span>
           </button>
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            min={16}
-            max={7680}
-            step={2}
-            disabled={spec.preset !== "custom"}
-            value={spec.custom.width}
-            onChange={(e) => setSpec({ custom: { ...spec.custom, width: even(e.target.value, spec.custom.width) } })}
-            className="w-24"
-            aria-label={t("studio.width")}
+        <label className="flex items-center gap-3 text-xs text-text-secondary">
+          {t("studio.resolution")}
+          <Select
+            value={RESOLUTIONS.some((r) => String(r.h) === resKey) ? resKey : "custom"}
+            onValueChange={(v) => {
+              const r = RESOLUTIONS.find((x) => String(x.h) === v);
+              if (r) setResolution(r.h);
+            }}
+            options={[
+              ...RESOLUTIONS.map((r) => ({ value: String(r.h), label: t(`studio.res.${r.key}`) })),
+              ...(spec.preset === "custom" ? [{ value: "custom", label: `${canvas.width} × ${canvas.height}` }] : []),
+            ]}
+            className="h-8 min-w-0 flex-1 text-xs"
           />
-          <span className="text-text-secondary">×</span>
-          <Input
-            type="number"
-            min={16}
-            max={7680}
-            step={2}
-            disabled={spec.preset !== "custom"}
-            value={spec.custom.height}
-            onChange={(e) => setSpec({ custom: { ...spec.custom, height: even(e.target.value, spec.custom.height) } })}
-            className="w-24"
-            aria-label={t("studio.height")}
+        </label>
+        {spec.preset === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input
+              type="number" min={16} max={7680} step={2}
+              value={spec.custom.width}
+              onChange={(e) => setSpec({ custom: { ...spec.custom, width: even(e.target.value, spec.custom.width) } })}
+              className="w-24" aria-label={t("studio.width")}
+            />
+            <span className="text-text-secondary">×</span>
+            <Input
+              type="number" min={16} max={7680} step={2}
+              value={spec.custom.height}
+              onChange={(e) => setSpec({ custom: { ...spec.custom, height: even(e.target.value, spec.custom.height) } })}
+              className="w-24" aria-label={t("studio.height")}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function OptionsPanel() {
+  const { t } = useTranslation();
+  const spec = useStudioStore((s) => s.spec);
+  const setSpec = useStudioStore((s) => s.setSpec);
+  const render = useStudioStore((s) => s.render);
+  const startRender = useStudioStore((s) => s.startRender);
+  const cancelRender = useStudioStore((s) => s.cancelRender);
+  const canExport = useStudioStore((s) => s.items.some((i) => i.path === s.selected && i.status === "ready"));
+  const e = spec.export;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2">
+          <SlidersHorizontal className="size-4 text-accent" />
+          {t("studio.options")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <Field label={t("studio.adjust")}>
+          <Select<string>
+            value={spec.background.kind}
+            onValueChange={(kind) =>
+              setSpec({
+                background: kind === "blur" ? { kind: "blur", sigma: 20, dim: 0.35 } : { kind: "solid", color: "#101418" },
+              })
+            }
+            options={[
+              { value: "blur", label: t("studio.bgBlur") },
+              { value: "solid", label: t("studio.bgSolid") },
+            ]}
+            className="h-8 min-w-0 w-full text-xs"
           />
-          <span className="ml-auto text-xs tabular-nums text-text-secondary">
-            {canvas.width}×{canvas.height}
-          </span>
-        </div>
+        </Field>
+        <Field label={t("studio.cropMode")}>
+          <Segmented
+            value={spec.fit.kind}
+            onValueChange={(kind) =>
+              setSpec({
+                fit:
+                  kind === "fill"
+                    ? { kind: "fill", offset_x: 0, offset_y: 0, zoom: 1 }
+                    : { kind: "fit", zoom: 1, offset_x: 0, offset_y: 0 },
+              })
+            }
+            options={[
+              { value: "fill", label: t("studio.crop") },
+              { value: "fit", label: t("studio.fitTo") },
+            ]}
+            aria-label={t("studio.cropMode")}
+          />
+        </Field>
+        <Field label={t("studio.quality")}>
+          <Select<QualityPreset>
+            value={e.quality}
+            onValueChange={(quality) => setSpec({ export: { ...e, quality } })}
+            options={[
+              { value: "fast", label: t("studio.qFast") },
+              { value: "balanced", label: t("studio.qBalanced") },
+              { value: "high", label: t("studio.qHigh") },
+            ]}
+            aria-label={t("studio.quality")}
+            className="h-8 min-w-0 w-full text-xs"
+          />
+        </Field>
+        {render.running ? (
+          <Button variant="danger" className="mt-1 w-full" onClick={() => void cancelRender()}>
+            <svg className="size-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+            {t("render.cancel")}
+          </Button>
+        ) : (
+          <Button
+            variant="gradient"
+            className="mt-1 w-full"
+            disabled={!canExport}
+            onClick={() => void startRender()}
+          >
+            <svg className="size-4" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            {t("studio.exportVideo")}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

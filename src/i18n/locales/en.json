@@ -125,7 +125,26 @@
     "watermark": "Watermark",
     "watermarkPick": "Pick image…",
     "watermarkNone": "No watermark",
-    "watermarkOpacity": "Opacity"
+    "watermarkOpacity": "Opacity",
+    "options": "Options",
+    "adjust": "Adjust",
+    "cropMode": "Fit mode",
+    "crop": "Crop",
+    "fitTo": "Fit",
+    "exportVideo": "Export video",
+    "sub": {
+      "classic": "Classic",
+      "hd": "HD",
+      "portrait": "Portrait",
+      "square": "Square",
+      "vertical": "Vertical"
+    },
+    "res": {
+      "r1080": "1080p (1920×1080)",
+      "r4k": "4K (2160p)",
+      "r540": "540p",
+      "r720": "720p (1280×720)"
+    }
   },
   "settings": {
     "title": "Settings",

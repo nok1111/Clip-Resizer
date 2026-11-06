@@ -9,8 +9,8 @@ export function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-bg-secondary">
       <div className="flex items-center gap-3 px-5 py-5">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-accent/15">
-          <Clapperboard className="size-5 text-accent" />
+        <div className="flex size-9 items-center justify-center rounded-xl bg-grad shadow-card">
+          <Clapperboard className="size-5 text-white" />
         </div>
         <div className="leading-tight">
           <div className="text-sm font-semibold text-text">Clip</div>
@@ -28,14 +28,14 @@ export function Sidebar() {
                 "group flex h-9 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
                 key === "settings" && "mt-auto",
                 isActive
-                  ? "bg-card text-text shadow-card"
+                  ? "bg-grad text-white shadow-card"
                   : "text-text-secondary hover:bg-card/60 hover:text-text",
               )
             }
           >
             {({ isActive }) => (
               <>
-                <Icon className={cn("size-4", isActive ? "text-accent" : "text-text-secondary group-hover:text-text")} />
+                <Icon className={cn("size-4", isActive ? "text-white" : "text-text-secondary group-hover:text-text")} />
                 <span className="truncate">{t(`nav.${key}`)}</span>
               </>
             )}

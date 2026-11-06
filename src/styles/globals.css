@@ -12,10 +12,11 @@
   --cr-card: rgb(29 35 47 / 0.72);
   --cr-card-hover: rgb(35 43 57 / 0.8);
   --cr-border: #2a3342;
-  --cr-accent: #ff9a3d;
-  --cr-accent-hover: #ffab5e;
-  --cr-accent-foreground: #1a1105;
-  --cr-accent-2: #4fd1b0;
+  --cr-accent: #8b5cf6;
+  --cr-accent-hover: #a78bfa;
+  --cr-accent-foreground: #ffffff;
+  --cr-accent-2: #5b8cff;
+  --cr-grad: linear-gradient(135deg, #8b5cf6 0%, #4f7cff 100%);
   --cr-text: #f4f5f7;
   --cr-text-secondary: #9299a8;
   --cr-danger: #ff6b7a;
@@ -31,10 +32,11 @@
   --cr-card: rgb(255 255 255 / 0.72);
   --cr-card-hover: rgb(251 247 242 / 0.85);
   --cr-border: #dde0e7;
-  --cr-accent: #e56f1f;
-  --cr-accent-hover: #c95f14;
+  --cr-accent: #7c5cf0;
+  --cr-accent-hover: #5f42d8;
   --cr-accent-foreground: #ffffff;
-  --cr-accent-2: #1fae8e;
+  --cr-accent-2: #3f6fe8;
+  --cr-grad: linear-gradient(135deg, #8b5cf6 0%, #4f7cff 100%);
   --cr-text: #151821;
   --cr-text-secondary: #5d6475;
   --cr-danger: #d93a4b;
@@ -61,6 +63,7 @@
   --color-warning: var(--cr-warning);
   --color-success: var(--cr-success);
   --shadow-card: var(--cr-shadow);
+  --gradient-accent: var(--cr-grad);
   --radius-card: 14px;
 }
 
@@ -69,6 +72,8 @@ body,
 #root {
   height: 100%;
 }
+
+.bg-grad { background-image: var(--cr-grad); }
 
 body {
   margin: 0;
