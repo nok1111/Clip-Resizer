@@ -103,6 +103,7 @@ mod tests {
             overlay: None,
             rotate: 0,
             flip: false,
+            watermark: None,
             background: Background::Solid { color: "#000".into() },
             margin: 0.0,
             border: (0.0, "#fff".into()),

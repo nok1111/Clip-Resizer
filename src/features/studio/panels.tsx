@@ -432,6 +432,76 @@ export function OverlayPanel() {
   );
 }
 
+const WM_POSITIONS: Array<[number, number]> = [
+  [-0.85, -0.85], [0, -0.85], [0.85, -0.85],
+  [-0.85, 0], [0, 0], [0.85, 0],
+  [-0.85, 0.85], [0, 0.85], [0.85, 0.85],
+];
+
+export function WatermarkPanel() {
+  const { t } = useTranslation();
+  const spec = useStudioStore((s) => s.spec);
+  const setSpec = useStudioStore((s) => s.setSpec);
+  const wm = spec.watermark;
+  const place = (path: string) =>
+    setSpec({ watermark: { path, scale: wm?.scale ?? 0.25, offsetX: wm?.offsetX ?? 0.85, offsetY: wm?.offsetY ?? 0.85, opacity: wm?.opacity ?? 0.7 } });
+  const pickImage = async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const p = await open({ filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] }] });
+    if (typeof p === "string") place(p);
+  };
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>{t("studio.watermark")}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => void pickImage()}
+            className="rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-xs text-text hover:bg-bg cursor-pointer">
+            {t("studio.watermarkPick")}
+          </button>
+          <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={wm?.path ?? ""}>
+            {wm?.path ? wm.path.split(/[\\/]/).pop() : t("studio.watermarkNone")}
+          </span>
+          {wm && (
+            <Button variant="ghost" size="sm" onClick={() => setSpec({ watermark: null })}>
+              {t("studio.overlayOff")}
+            </Button>
+          )}
+        </div>
+        {wm && (
+          <>
+            <div className="grid grid-cols-3 gap-1 self-start">
+              {WM_POSITIONS.map(([x, y], i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSpec({ watermark: { ...wm, offsetX: x, offsetY: y } })}
+                  className={`size-4 rounded-sm border cursor-pointer ${
+                    Math.abs(wm.offsetX - x) < 0.1 && Math.abs(wm.offsetY - y) < 0.1
+                      ? "border-accent bg-accent"
+                      : "border-border bg-bg-secondary hover:border-accent"
+                  }`}
+                  aria-label={`position ${i}`}
+                />
+              ))}
+            </div>
+            <Range label={t("studio.overlayScale")} min={0.05} max={1} step={0.05} value={wm.scale}
+              onChange={(scale) => setSpec({ watermark: { ...wm, scale } })} />
+            <Range label={t("studio.watermarkOpacity")} min={0.1} max={1} step={0.05} value={wm.opacity}
+              onChange={(opacity) => setSpec({ watermark: { ...wm, opacity } })} />
+            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02} value={wm.offsetX}
+              onChange={(offsetX) => setSpec({ watermark: { ...wm, offsetX } })} />
+            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02} value={wm.offsetY}
+              onChange={(offsetY) => setSpec({ watermark: { ...wm, offsetY } })} />
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function even(v: string, fallback: number): number {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;

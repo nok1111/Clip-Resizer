@@ -156,6 +156,28 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
              [base][ovr]overlay='(W-w)*{px:.4}':'(H-h)*{py:.4}'"
         ));
     }
+    // Watermark: still image with opacity, composited last (topmost).
+    if let Some(wm) = &spec.watermark {
+        let mut idx = 1usize;
+        if matches!(spec.fit, FitSpec::Fit { .. })
+            && matches!(spec.background, Background::Image { .. })
+        {
+            idx += 1;
+        }
+        if spec.overlay.is_some() {
+            idx += 1;
+        }
+        let wf = wm.scale.clamp(0.02, 1.0);
+        let px = (1.0 + wm.offset_x.clamp(-1.0, 1.0)) / 2.0;
+        let py = (1.0 + wm.offset_y.clamp(-1.0, 1.0)) / 2.0;
+        let op = wm.opacity.clamp(0.0, 1.0);
+        v.push_str("[wmb]");
+        v.push_str(&format!(
+            ";[{idx}:v]scale=trunc({w}*{wf:.4}/2)*2:-2,format=rgba,\
+             colorchannelmixer=aa={op:.3}[wml];\
+             [wmb][wml]overlay='(W-w)*{px:.4}':'(H-h)*{py:.4}'"
+        ));
+    }
     // No fps filter when keeping the source rate — it would be a no-op
     // anyway (and "source" is not a valid fps constant).
     if let Some(fps) = spec.export.fps {
@@ -336,6 +358,10 @@ pub fn build_args(
     // Overlay video input (index 2 when an image bg exists, else 1).
     if let Some(ov) = &spec.overlay {
         args.extend(["-i".into(), ov.path.clone()]);
+    }
+    // Watermark image input (always the last input).
+    if let Some(wm) = &spec.watermark {
+        args.extend(["-loop".into(), "1".into(), "-i".into(), wm.path.clone()]);
     }
     args.extend([
         "-filter_complex".into(),
@@ -582,6 +608,9 @@ pub fn preview_frame(
     if let Some(ov) = &spec.overlay {
         cmd.args(["-i".into(), ov.path.clone()]);
     }
+    if let Some(wm) = &spec.watermark {
+        cmd.args(["-loop".into(), "1".into(), "-i".into(), wm.path.clone()]);
+    }
     cmd.args([
         "-filter_complex".into(),
         filtergraph(spec, meta.width, meta.height),
@@ -670,6 +699,7 @@ mod tests {
             overlay: None,
             rotate: 0,
             flip: false,
+            watermark: None,
             guides: cr_model::Guides {
                 safe: false,
                 thirds: false,

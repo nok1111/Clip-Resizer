@@ -281,7 +281,27 @@ pub struct RenderSpec {
     /// Mirror the source horizontally.
     #[serde(default)]
     pub flip: bool,
+    /// Optional watermark image stamped on the whole video.
+    #[serde(default)]
+    pub watermark: Option<WatermarkSpec>,
     pub export: ExportSpec,
+}
+
+/// A still image overlaid at a position with opacity — watermark.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct WatermarkSpec {
+    /// Image file used as the watermark (png/jpg/webp…).
+    pub path: String,
+    /// Width as a fraction of the canvas width (0.02..1.0).
+    pub scale: f64,
+    /// Horizontal position -1..1: -1 left edge, 0 center, +1 right edge.
+    pub offset_x: f64,
+    /// Vertical position -1..1: -1 top, 0 center, +1 bottom.
+    pub offset_y: f64,
+    /// Opacity 0..1.
+    pub opacity: f64,
 }
 
 /// A second video composited on top of the main composition.

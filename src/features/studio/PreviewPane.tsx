@@ -7,7 +7,7 @@ import { aspectLabel, formatBytes, formatDurationMs, formatFps } from "@/lib/for
 import { ipc } from "@/lib/ipc";
 import { useStudioStore } from "@/stores/studio";
 import { ComposedPreview } from "./ComposedPreview";
-import { ExportPanel, FitPanel, FormatPanel, GuidesPanel, OverlayPanel } from "./panels";
+import { ExportPanel, FitPanel, FormatPanel, GuidesPanel, OverlayPanel, WatermarkPanel } from "./panels";
 
 export function PreviewPane() {
   const { t } = useTranslation();
@@ -61,6 +61,7 @@ export function PreviewPane() {
             <div className="flex flex-col gap-3">
               <FitPanel />
               <OverlayPanel />
+              <WatermarkPanel />
               <GuidesPanel />
             </div>
             <div className="flex flex-col gap-3">

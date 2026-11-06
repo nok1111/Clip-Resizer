@@ -5,6 +5,7 @@ import type { ExportSpec } from "./ExportSpec";
 import type { FitSpec } from "./FitSpec";
 import type { Guides } from "./Guides";
 import type { OverlaySpec } from "./OverlaySpec";
+import type { WatermarkSpec } from "./WatermarkSpec";
 
 /**
  * Everything needed to render one video → one FFmpeg command.
@@ -29,4 +30,8 @@ rotate: number,
 /**
  * Mirror the source horizontally.
  */
-flip: boolean, export: ExportSpec, };
+flip: boolean, 
+/**
+ * Optional watermark image stamped on the whole video.
+ */
+watermark: WatermarkSpec | null, export: ExportSpec, };

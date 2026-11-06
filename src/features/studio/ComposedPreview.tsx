@@ -45,6 +45,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const stageRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const ovDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const wmDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const setSpec = useStudioStore((s) => s.setSpec);
 
   const layers = useMemo(() => {
@@ -260,6 +261,48 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 }}
                 onPointerUp={() => (ovDrag.current = null)}
                 onPointerCancel={() => (ovDrag.current = null)}
+              />
+            </div>
+          )}
+          {/* Watermark — topmost, clipped to the frame, draggable. */}
+          {spec.watermark?.path && (
+            <div className="absolute inset-0 overflow-hidden">
+              <img
+                src={convertFileSrc(spec.watermark.path)}
+                alt=""
+                draggable={false}
+                className="absolute cursor-move touch-none object-contain"
+                style={{
+                  width: `${spec.watermark.scale * 100}%`,
+                  left: `${50 + (spec.watermark.offsetX * (100 - spec.watermark.scale * 100)) / 2}%`,
+                  top: `${50 + (spec.watermark.offsetY * (100 - spec.watermark.scale * 100)) / 2}%`,
+                  transform: "translate(-50%,-50%)",
+                  opacity: spec.watermark.opacity,
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  wmDrag.current = { x: e.clientX, y: e.clientY, ox: spec.watermark!.offsetX, oy: spec.watermark!.offsetY };
+                  (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const d = wmDrag.current;
+                  const el = stageRef.current;
+                  const w = spec.watermark;
+                  if (!d || !el || !w) return;
+                  const r2 = el.getBoundingClientRect();
+                  const free = 100 - w.scale * 100;
+                  if (free < 1) return;
+                  e.stopPropagation();
+                  setSpec({
+                    watermark: {
+                      ...w,
+                      offsetX: Math.max(-1, Math.min(1, d.ox + ((e.clientX - d.x) / r2.width) * 200 / free)),
+                      offsetY: Math.max(-1, Math.min(1, d.oy + ((e.clientY - d.y) / r2.height) * 200 / free)),
+                    },
+                  });
+                }}
+                onPointerUp={() => (wmDrag.current = null)}
+                onPointerCancel={() => (wmDrag.current = null)}
               />
             </div>
           )}

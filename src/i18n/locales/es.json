@@ -121,7 +121,11 @@
     "overlayOff": "Quitar",
     "overlayScale": "Escala",
     "rotate": "Rotar",
-    "mirror": "Espejo"
+    "mirror": "Espejo",
+    "watermark": "Marca de agua",
+    "watermarkPick": "Elegir imagen…",
+    "watermarkNone": "Sin marca",
+    "watermarkOpacity": "Opacidad"
   },
   "settings": {
     "title": "Ajustes",

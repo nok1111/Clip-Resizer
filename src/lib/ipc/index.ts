@@ -15,6 +15,7 @@ import type { HistoryRow } from "./bindings/HistoryRow";
 export type { AppInfo } from "./bindings/AppInfo";
 export type { Language } from "./bindings/Language";
 export type { OverlaySpec } from "./bindings/OverlaySpec";
+export type { WatermarkSpec } from "./bindings/WatermarkSpec";
 export type { LocalVideo } from "./bindings/LocalVideo";
 export type { ProbeError } from "./bindings/ProbeError";
 export type { ProbeResult } from "./bindings/ProbeResult";

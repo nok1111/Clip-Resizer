@@ -121,7 +121,11 @@
     "overlayOff": "Remove",
     "overlayScale": "Scale",
     "rotate": "Rotate",
-    "mirror": "Mirror"
+    "mirror": "Mirror",
+    "watermark": "Watermark",
+    "watermarkPick": "Pick image…",
+    "watermarkNone": "No watermark",
+    "watermarkOpacity": "Opacity"
   },
   "settings": {
     "title": "Settings",
