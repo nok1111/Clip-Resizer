@@ -175,20 +175,31 @@ pub enum AspectPreset {
 }
 
 /// How the source maps onto the canvas.
+///
+/// Position model: `pan_x`/`pan_y` move the foreground centre by a fraction
+/// of the canvas (0 = centred, 0.5 = centre on the right/bottom edge). It is
+/// independent of zoom, so zooming never makes the framing jump.
+/// `offset_x`/`offset_y` are the legacy slack-relative offsets (-1..1),
+/// kept only so presets saved before pan existed still render the same;
+/// the UI folds them into pan and writes 0.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 #[ts(export)]
 pub enum FitSpec {
-    /// Cover the canvas; offset/zoom position the visible window.
-    /// offsets are -1..1 of the crop slack; zoom >= 1 multiplies the cover scale.
+    /// Cover the canvas; zoom multiplies the cover scale (< 1 letterboxes).
     Fill {
+        #[serde(default)]
         offset_x: f64,
+        #[serde(default)]
         offset_y: f64,
         zoom: f64,
+        #[serde(default)]
+        pan_x: f64,
+        #[serde(default)]
+        pan_y: f64,
     },
-    /// Fit whole frame inside the canvas (letterbox via `background`).
-    /// zoom > 1 enlarges the fg past the canvas (it gets cropped);
-    /// offsets -1..1 pan within the free space (letterbox or crop slack).
+    /// Fit whole frame inside the canvas (letterbox via `background`);
+    /// zoom > 1 enlarges the fg past the canvas (it gets cropped).
     Fit {
         #[serde(default = "fit_zoom_default")]
         zoom: f64,
@@ -196,6 +207,10 @@ pub enum FitSpec {
         offset_x: f64,
         #[serde(default)]
         offset_y: f64,
+        #[serde(default)]
+        pan_x: f64,
+        #[serde(default)]
+        pan_y: f64,
     },
 }
 

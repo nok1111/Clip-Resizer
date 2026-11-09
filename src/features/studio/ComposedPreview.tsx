@@ -1,9 +1,32 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FastForward, Maximize, Pause, Play, Rewind, Volume2, VolumeX } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { ipc, videoUrl } from "@/lib/ipc";
-import { specCanvas, useStudioStore, type StudioItem } from "@/stores/studio";
+import { specCanvas, specFrameCtx, useStudioStore, type StudioItem } from "@/stores/studio";
+import { constrain, foldLegacy, placement, snap, type Snap } from "@/lib/framing";
+import type { FitSpec } from "@/lib/ipc";
+
+const SNAP_PX = 8;
+
+/** CSS for a PiP/watermark box matching ffmpeg `overlay=(W-w)*px:(H-h)*py`. */
+function cornerPlace(scale: number, ox: number, oy: number) {
+  const px = (1 + Math.max(-1, Math.min(1, ox))) / 2;
+  const py = (1 + Math.max(-1, Math.min(1, oy))) / 2;
+  return {
+    width: `${scale * 100}%`,
+    left: `${px * 100}%`,
+    top: `${py * 100}%`,
+    transform: `translate(${-px * 100}%,${-py * 100}%)`,
+  };
+}
+
+/** Drag delta → new -1..1 offset; the free span is measured, not guessed. */
+function dragOffset(start: number, deltaPx: number, stagePx: number, elPx: number, cur: number) {
+  const free = (stagePx - elPx) / stagePx;
+  if (free < 0.01) return cur;
+  return Math.max(-1, Math.min(1, start + (2 * deltaPx) / stagePx / free));
+}
 
 /**
  * CSS composition that mirrors the FFmpeg filtergraph 1:1 — canvas-ratio
@@ -52,58 +75,52 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const effW = rotSwap ? meta.height : meta.width;
   const effH = rotSwap ? meta.width : meta.height;
   const stageRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; fit: FitSpec } | null>(null);
   const ovDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const wmDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const setSpec = useStudioStore((s) => s.setSpec);
+  const resetFraming = useStudioStore((s) => s.resetFraming);
+  const [guides, setGuides] = useState<Pick<Snap, "x" | "y"> | null>(null);
+  const [stageW, setStageW] = useState(0);
+  const ctx = useMemo(() => specFrameCtx(spec, meta), [spec, meta]);
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setStageW(el.clientWidth));
+    ro.observe(el);
+    // Wheel zoom centred on the cursor. Native listener: React's is passive
+    // and could not stop the page from scrolling.
+    const onWheel = (e: WheelEvent) => {
+      if ((e.target as HTMLElement).closest("[data-no-wheel]")) return;
+      e.preventDefault();
+      const st = useStudioStore.getState();
+      const cv = specCanvas(st.spec);
+      const r2 = el.getBoundingClientRect();
+      const anchor = {
+        x: ((e.clientX - r2.left) / r2.width) * cv.width,
+        y: ((e.clientY - r2.top) / r2.height) * cv.height,
+      };
+      const k = Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015));
+      st.zoomTo(st.spec.fit.zoom * k, anchor);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, []);
 
   const layers = useMemo(() => {
     const cover = Math.max(canvas.width / effW, canvas.height / effH);
-    const fit = Math.min(canvas.width / effW, canvas.height / effH);
     const vidRatio = `${meta.width} / ${meta.height}`;
-    // Position/sizing helper: element keeps the video's own aspect (width
-    // + aspect-ratio, never independent w/h → no distortion is possible).
-    const box = (scale: number) => {
-      const wPct = (meta.width * scale * 100) / canvas.width;
-      const hPct = (meta.height * scale * 100) / canvas.height;
-      const vw = (effW * scale * 100) / canvas.width;
-      const vh = (effH * scale * 100) / canvas.height;
-      return { wPct, hPct, vw, vh };
-    };
-    if (spec.fit.kind === "fill" && spec.fit.zoom >= 0.999) {
-      const { wPct, vw, vh } = box(cover * spec.fit.zoom);
-      const slackX = Math.max(0, (vw - 100) / 2);
-      const slackY = Math.max(0, (vh - 100) / 2);
-      return {
-        bg: null,
-        slackX,
-        slackY,
-        fg: {
-          width: `${wPct}%`,
-          aspectRatio: vidRatio,
-          height: "auto",
-          // Sign must match the FFmpeg crop: positive offset pans the
-          // visible window toward the right/bottom of the source.
-          left: `${50 - spec.fit.offset_x * slackX}%`,
-          top: `${50 - spec.fit.offset_y * slackY}%`,
-          transform: `translate(-50%,-50%) rotate(${rot}deg) scaleX(${spec.flip ? -1 : 1})`,
-        },
-      };
-    }
-    // Fit, or zoomed-out Fill (zoom < 1): fg sits on the chosen background.
-    const fgScale =
-      spec.fit.kind === "fill" ? cover * spec.fit.zoom : fit * spec.fit.zoom;
-    const { wPct, vw, vh } = box(fgScale);
-    const shrink = spec.fit.kind === "fill" ? 1 : 1 - 2 * spec.margin;
-    // Pan within the free space (letterbox) or the crop window (oversized).
-    const oxx = "offset_x" in spec.fit ? spec.fit.offset_x : 0;
-    const oyy = "offset_y" in spec.fit ? spec.fit.offset_y : 0;
-    const slackX = (vw * shrink - 100) / 2;
-    const slackY = (vh * shrink - 100) / 2;
-    const bPx = (spec.border[0] / canvas.height) * 100;
+    const mirror = `rotate(${rot}deg) scaleX(${spec.flip ? -1 : 1})`;
+    // Same placement the export uses (Rust `placement`). The element keeps
+    // the video's own aspect (width + aspect-ratio) and is rotated around
+    // its centre, so only the centre and the unrotated width matter.
+    const p = placement(spec.fit, ctx);
+    const borderPx = stageW > 0 ? (p.border * stageW) / canvas.width : 0;
     return {
-      slackX,
-      slackY,
       bg:
         spec.background.kind === "blur"
           ? {
@@ -113,7 +130,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               left: "50%",
               top: "50%",
               filter: `blur(${Math.round(spec.background.sigma / 2)}px) brightness(${1 - spec.background.dim})`,
-              transform: "translate(-50%,-50%) scale(1.1)",
+              transform: `translate(-50%,-50%) ${mirror} scale(1.1)`,
             }
           : null,
       imageUrl:
@@ -122,33 +139,37 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
           : null,
       imageBlur: spec.background.kind === "image" ? spec.background.blur / 2 : 0,
       fg: {
-        width: `${wPct * shrink}%`,
+        width: `${(meta.width * p.scale * 100) / canvas.width}%`,
         aspectRatio: vidRatio,
         height: "auto",
-        left: `${50 - oxx * slackX}%`,
-        top: `${50 - oyy * slackY}%`,
-        transform: `translate(-50%,-50%) rotate(${rot}deg) scaleX(${spec.flip ? -1 : 1})`,
-        boxSizing: "border-box" as const,
-        border: spec.border[0] > 0 ? `${bPx}cqh solid ${spec.border[1]}` : undefined,
+        left: `${((p.x + p.w / 2) * 100) / canvas.width}%`,
+        top: `${((p.y + p.h / 2) * 100) / canvas.height}%`,
+        transform: `translate(-50%,-50%) ${mirror}`,
+        boxSizing: "content-box" as const,
+        border: borderPx > 0 ? `${borderPx}px solid ${spec.border[1]}` : undefined,
       },
       solid: spec.background.kind === "solid" ? spec.background.color : undefined,
     };
-  }, [spec, canvas, meta, effW, effH, rot]);
+  }, [spec, canvas, meta, effW, effH, rot, ctx, stageW]);
+
+  const endDrag = () => {
+    drag.current = null;
+    setGuides(null);
+  };
 
   return (
     <div className="flex size-full flex-col">
       <div
-        className="flex min-h-0 flex-1 items-center justify-center p-4"
+        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4"
         style={{ containerType: "size" }}
       >
         <div
           ref={stageRef}
           className="relative cursor-grab active:cursor-grabbing touch-none"
+          title={t("studio.framingHint")}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
-            const oxx = "offset_x" in spec.fit ? spec.fit.offset_x : 0;
-            const oyy = "offset_y" in spec.fit ? spec.fit.offset_y : 0;
-            drag.current = { x: e.clientX, y: e.clientY, ox: oxx, oy: oyy };
+            drag.current = { x: e.clientX, y: e.clientY, fit: foldLegacy(spec.fit, ctx) };
             (e.target as HTMLElement).setPointerCapture(e.pointerId);
           }}
           onPointerMove={(e) => {
@@ -156,22 +177,28 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
             const el = stageRef.current;
             if (!d || !el) return;
             const r2 = el.getBoundingClientRect();
-            const dxPct = ((e.clientX - d.x) / r2.width) * 100;
-            const dyPct = ((e.clientY - d.y) / r2.height) * 100;
-            const sx = layers.slackX ?? 0;
-            const sy = layers.slackY ?? 0;
-            const nx = Math.abs(sx) > 0.5 ? d.ox - dxPct / sx : d.ox;
-            const ny = Math.abs(sy) > 0.5 ? d.oy - dyPct / sy : d.oy;
-            setSpec({
-              fit: {
-                ...spec.fit,
-                offset_x: Math.max(-1, Math.min(1, nx)),
-                offset_y: Math.max(-1, Math.min(1, ny)),
+            // Pan is a canvas fraction: the fg follows the pointer 1:1 at any
+            // zoom, and can be pushed partially off-canvas when zoomed out.
+            let fit = constrain(
+              {
+                ...d.fit,
+                pan_x: d.fit.pan_x + (e.clientX - d.x) / r2.width,
+                pan_y: d.fit.pan_y + (e.clientY - d.y) / r2.height,
               },
-            });
+              ctx,
+            );
+            if (e.altKey) {
+              setGuides(null);
+            } else {
+              const s = snap(fit, ctx, (SNAP_PX * canvas.width) / r2.width);
+              fit = constrain(s.fit, ctx);
+              setGuides(s.x === null && s.y === null ? null : { x: s.x, y: s.y });
+            }
+            setSpec({ fit });
           }}
-          onPointerUp={() => (drag.current = null)}
-          onPointerCancel={() => (drag.current = null)}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onDoubleClick={resetFraming}
           style={{
             aspectRatio: `${canvas.width} / ${canvas.height}`,
             // cqw/cqh keep the canvas inside BOTH bounds without ever
@@ -224,13 +251,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
             className="absolute object-fill"
             style={layers.fg}
             onError={handleError}
-            ref={(el) => {
-              videoRef.current = el;
-              if (!el) return;
-              const id = setInterval(() => setTime(el.currentTime), 250);
-              const obs = () => clearInterval(id);
-              el.addEventListener("emptied", obs, { once: true });
-            }}
+            onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+            ref={videoRef}
           />
           {/* PiP overlay — clipped to the frame but above the fg; draggable. */}
           {spec.overlay?.path && (
@@ -243,12 +265,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 autoPlay
                 loop
                 className="absolute cursor-move touch-none object-contain"
-                style={{
-                  width: `${spec.overlay.scale * 100}%`,
-                  left: `${50 + (spec.overlay.offsetX * (100 - spec.overlay.scale * 100)) / 2}%`,
-                  top: `${50 + (spec.overlay.offsetY * (100 - spec.overlay.scale * 100)) / 2}%`,
-                  transform: "translate(-50%,-50%)",
-                }}
+                style={cornerPlace(spec.overlay.scale, spec.overlay.offsetX, spec.overlay.offsetY)}
+                onDoubleClick={(e) => e.stopPropagation()}
                 onError={() => undefined}
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -261,14 +279,13 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                   const ov = spec.overlay;
                   if (!d || !el || !ov) return;
                   const r2 = el.getBoundingClientRect();
-                  const free = 100 - ov.scale * 100;
-                  if (free < 1) return;
+                  const me = e.currentTarget.getBoundingClientRect();
                   e.stopPropagation();
                   setSpec({
                     overlay: {
                       ...ov,
-                      offsetX: Math.max(-1, Math.min(1, d.ox + ((e.clientX - d.x) / r2.width) * 200 / free)),
-                      offsetY: Math.max(-1, Math.min(1, d.oy + ((e.clientY - d.y) / r2.height) * 200 / free)),
+                      offsetX: dragOffset(d.ox, e.clientX - d.x, r2.width, me.width, ov.offsetX),
+                      offsetY: dragOffset(d.oy, e.clientY - d.y, r2.height, me.height, ov.offsetY),
                     },
                   });
                 }}
@@ -286,12 +303,10 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 draggable={false}
                 className="absolute cursor-move touch-none object-contain"
                 style={{
-                  width: `${spec.watermark.scale * 100}%`,
-                  left: `${50 + (spec.watermark.offsetX * (100 - spec.watermark.scale * 100)) / 2}%`,
-                  top: `${50 + (spec.watermark.offsetY * (100 - spec.watermark.scale * 100)) / 2}%`,
-                  transform: "translate(-50%,-50%)",
+                  ...cornerPlace(spec.watermark.scale, spec.watermark.offsetX, spec.watermark.offsetY),
                   opacity: spec.watermark.opacity,
                 }}
+                onDoubleClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   wmDrag.current = { x: e.clientX, y: e.clientY, ox: spec.watermark!.offsetX, oy: spec.watermark!.offsetY };
@@ -303,14 +318,13 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                   const w = spec.watermark;
                   if (!d || !el || !w) return;
                   const r2 = el.getBoundingClientRect();
-                  const free = 100 - w.scale * 100;
-                  if (free < 1) return;
+                  const me = e.currentTarget.getBoundingClientRect();
                   e.stopPropagation();
                   setSpec({
                     watermark: {
                       ...w,
-                      offsetX: Math.max(-1, Math.min(1, d.ox + ((e.clientX - d.x) / r2.width) * 200 / free)),
-                      offsetY: Math.max(-1, Math.min(1, d.oy + ((e.clientY - d.y) / r2.height) * 200 / free)),
+                      offsetX: dragOffset(d.ox, e.clientX - d.x, r2.width, me.width, w.offsetX),
+                      offsetY: dragOffset(d.oy, e.clientY - d.y, r2.height, me.height, w.offsetY),
                     },
                   });
                 }}
@@ -318,6 +332,17 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 onPointerCancel={() => (wmDrag.current = null)}
               />
             </div>
+          )}
+          {/* Snap guides while dragging the frame. */}
+          {guides && (
+            <svg className="pointer-events-none absolute inset-0 size-full" viewBox={`0 0 ${canvas.width} ${canvas.height}`} preserveAspectRatio="none">
+              {guides.x !== null && (
+                <line x1={guides.x} y1={0} x2={guides.x} y2={canvas.height} stroke="rgb(56,189,248)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+              )}
+              {guides.y !== null && (
+                <line x1={0} y1={guides.y} x2={canvas.width} y2={guides.y} stroke="rgb(56,189,248)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+              )}
+            </svg>
           )}
           {/* Canvas boundary — always visible above the bleeding fg. */}
           <div className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-inset ring-white/50" />
@@ -358,6 +383,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               type="button"
               onClick={togglePlay}
               onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
               className="absolute inset-0 z-20 flex items-center justify-center cursor-pointer"
               aria-label={t("player.play")}
             >
@@ -370,6 +396,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
           <div
             className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-8"
             onPointerDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            data-no-wheel
           >
             <button type="button" title={t("player.back")} onClick={() => skip(-10)}
               className="rounded p-1 text-white/80 hover:text-white cursor-pointer"><Rewind size={15} /></button>

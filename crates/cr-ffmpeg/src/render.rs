@@ -79,73 +79,17 @@ pub fn pick_encoder(codec: VideoCodec, available: &[String]) -> Option<String> {
 /// Video filter chain for the spec, given the source display dimensions.
 /// Ends with setsar=1 so outputs never carry odd sample aspect.
 pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
-    let Canvas { width: w, height: h } = spec.canvas;
+    let Canvas { width: w, .. } = spec.canvas;
     let mut v = String::new();
-    // Transform first so downstream expressions see post-rotation dims.
-    if spec.flip {
-        v.push_str("hflip,");
-    }
-    match spec.rotate % 360 {
-        90 => v.push_str("transpose=1,"),
-        180 => v.push_str("transpose=2,transpose=2,"),
-        270 => v.push_str("transpose=2,"),
-        _ => {}
-    }
     let (src_w, src_h) = if spec.rotate % 180 == 90 {
         (src_h, src_w)
     } else {
         (src_w, src_h)
     };
-    match spec.fit {
-        FitSpec::Fill {
-            offset_x,
-            offset_y,
-            zoom,
-        } => {
-            // cover scale so the frame covers the canvas; zoom < 1 shrinks
-            // below cover → letterboxed on the chosen background (like a
-            // "negative margin"), zoom >= 1 crops into the frame.
-            let cover_s = (w as f64 / src_w as f64).max(h as f64 / src_h as f64);
-            let sc = cover_s * zoom.clamp(0.05, 8.0);
-            if sc < cover_s * 0.999 {
-                let iw = (src_w as f64 * sc).max(2.0) as u32 & !1;
-                let ih = (src_h as f64 * sc).max(2.0) as u32 & !1;
-                v.push_str(&fit_graph(spec, w, h, iw, ih, offset_x, offset_y));
-            } else {
-                // crop=w:h:x:y on the scaled frame is the robust classic recipe.
-                v.push_str(&format!(
-                    "scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos"
-                ));
-                let z = sc / cover_s;
-                v.push_str(&format!(",scale=trunc(iw*{z}/2)*2:trunc(ih*{z}/2)*2"));
-                // crop slack: (iw-w)/2 ± offset*slack
-                v.push_str(&format!(
-                    ",crop={w}:{h}:x='(iw-{w})/2{}':y='(ih-{h})/2{}'",
-                    signed_mul(clamp01(offset_x), &format!("(iw-{w})/2")),
-                    signed_mul(clamp01(offset_y), &format!("(ih-{h})/2")),
-                ));
-            }
-        }
-        FitSpec::Fit {
-            zoom,
-            offset_x,
-            offset_y,
-        } => {
-            // Exact fg dims in Rust (fit-scale * margin-shrink * zoom) — no
-            // FFmpeg aspect heuristics, so zoom > 1 upscales without a cap.
-            let m = spec.margin.clamp(0.0, 0.4);
-            let z = zoom.clamp(0.05, 8.0);
-            let fit_s =
-                (w as f64 / src_w as f64).min(h as f64 / src_h as f64) * (1.0 - 2.0 * m) * z;
-            let iw = ((src_w as f64 * fit_s).max(2.0) as u32) & !1;
-            let ih = ((src_h as f64 * fit_s).max(2.0) as u32) & !1;
-            v.push_str(&fit_graph(spec, w, h, iw, ih, offset_x, offset_y));
-        }
-    }
+    v.push_str(&compose(spec, src_w, src_h));
     // Picture-in-picture overlay: input index 2 when an image bg exists.
     if let Some(ov) = &spec.overlay {
-        let img_bg = matches!(spec.fit, FitSpec::Fit { .. })
-            && matches!(spec.background, Background::Image { .. });
+        let img_bg = matches!(spec.background, Background::Image { .. });
         let oi = if img_bg { 2 } else { 1 };
         let wf = ov.scale.clamp(0.05, 1.0);
         let px = (1.0 + ov.offset_x.clamp(-1.0, 1.0)) / 2.0;
@@ -159,9 +103,7 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
     // Watermark: still image with opacity, composited last (topmost).
     if let Some(wm) = &spec.watermark {
         let mut idx = 1usize;
-        if matches!(spec.fit, FitSpec::Fit { .. })
-            && matches!(spec.background, Background::Image { .. })
-        {
+        if matches!(spec.background, Background::Image { .. }) {
             idx += 1;
         }
         if spec.overlay.is_some() {
@@ -205,45 +147,132 @@ pub fn filtergraph(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
     v
 }
 
-/// Foreground scaled to iw×ih (decrease) over the chosen background —
-/// shared by Fit and zoomed-out Fill.
-fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32, ox: f64, oy: f64) -> String {
-    let (bw, border) = &spec.border;
-    let borderpad = if *bw > 0.0 {
-        format!(",pad=iw+{b}:ih+{b}:(ow-iw)/2:(oh-ih)/2:{border}", b = (2.0 * *bw) as i32)
-    } else {
-        String::new()
-    };
-    // iw/ih are the exact target dims — plain scale, no aspect heuristic.
-    let fg = format!("scale={iw}:{ih}:flags=lanczos{borderpad}");
-    // Center + offset*slack — same convention as the Fill crop: positive
-    // offset pans toward the right/bottom of the frame.
-    let px = signed_mul(clamp01(ox), "(ow-iw)/2");
-    let py = signed_mul(clamp01(oy), "(oh-ih)/2");
-    let ovx = signed_mul(clamp01(ox), "(W-w)/2");
-    let ovy = signed_mul(clamp01(oy), "(H-h)/2");
-    let crop_off = format!(
-        ":x='(iw-{w})/2{cx}':y='(ih-{h})/2{cy}'",
-        cx = signed_mul(clamp01(ox), &format!("(iw-{w})/2")),
-        cy = signed_mul(clamp01(oy), &format!("(ih-{h})/2")),
-    );
-    match &spec.background {
-        Background::Solid { color } => {
-            // pad up to the LARGER of fg/canvas then crop centered: fg may
-            // exceed the canvas when fit zoom > 1 (crop handles both ways).
-            format!(
-                "{fg},pad='max(iw,{w})':'max(ih,{h})':'(ow-iw)/2{px}':'(oh-ih)/2{py}':{color},crop={w}:{h}{crop_off}"
-            )
+/// Foreground placement on the canvas in output pixels (post-rotation).
+/// Single source of truth for the framing math — the preview mirrors it in
+/// `src/lib/framing.ts`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Placement {
+    /// Video content (border excluded): top-left corner and size.
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    /// Output pixels per source pixel.
+    pub scale: f64,
+    /// Border thickness drawn around the content (0 when not framed).
+    pub border: f64,
+}
+
+/// Where the fg lands for `spec`, given post-rotation source dims.
+pub fn placement(spec: &RenderSpec, src_w: u32, src_h: u32) -> Placement {
+    let cw = spec.canvas.width as f64;
+    let ch = spec.canvas.height as f64;
+    let sw = src_w.max(1) as f64;
+    let sh = src_h.max(1) as f64;
+    let cover = (cw / sw).max(ch / sh);
+    let fit = (cw / sw).min(ch / sh);
+    let (scale, framed, ox, oy, px, py) = match spec.fit {
+        FitSpec::Fill { offset_x, offset_y, zoom, pan_x, pan_y } => {
+            let z = zoom.clamp(0.05, 8.0);
+            (cover * z, z < 0.999, offset_x, offset_y, pan_x, pan_y)
         }
+        FitSpec::Fit { zoom, offset_x, offset_y, pan_x, pan_y } => {
+            let m = spec.margin.clamp(0.0, 0.4);
+            let s = fit * (1.0 - 2.0 * m) * zoom.clamp(0.05, 8.0);
+            (s, true, offset_x, offset_y, pan_x, pan_y)
+        }
+    };
+    let w = sw * scale;
+    let h = sh * scale;
+    let border = if framed { spec.border.0.max(0.0) } else { 0.0 };
+    let (ow, oh) = (w + 2.0 * border, h + 2.0 * border);
+    // pan moves the centre by a canvas fraction; the legacy offset term
+    // reproduces the old slack-relative placement (-offset * slack).
+    let cx = cw / 2.0 + fin(px).clamp(-4.0, 4.0) * cw - clamp01(fin(ox)) * (ow - cw) / 2.0;
+    let cy = ch / 2.0 + fin(py).clamp(-4.0, 4.0) * ch - clamp01(fin(oy)) * (oh - ch) / 2.0;
+    // Keep a sliver on-canvas so the graph never gets an empty crop.
+    let cx = cx.clamp(4.0 - w / 2.0, cw - 4.0 + w / 2.0);
+    let cy = cy.clamp(4.0 - h / 2.0, ch - 4.0 + h / 2.0);
+    Placement { x: cx - w / 2.0, y: cy - h / 2.0, w, h, scale, border }
+}
+
+fn fin(v: f64) -> f64 {
+    if v.is_finite() { v } else { 0.0 }
+}
+
+fn even(v: f64) -> i64 {
+    ((v / 2.0).round() * 2.0) as i64
+}
+
+/// Integer recipe for one axis: crop the source to `[s0, s0+span)`, scale
+/// that strip to `t`, trim `inner..inner+len` and place it at `pos`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct AxisPlan {
+    s0: u32,
+    span: u32,
+    t: u32,
+    inner: u32,
+    len: u32,
+    pos: u32,
+}
+
+fn axis_plan(x: f64, w: f64, scale: f64, src: u32, canvas: u32) -> AxisPlan {
+    let canvas = canvas as i64;
+    let v0 = even(x).clamp(0, canvas - 2);
+    let v1 = even(x + w).clamp(v0 + 2, canvas);
+    let src = src.max(1);
+    let s0 = (((v0 as f64 - x) / scale).floor().max(0.0) as u32).min(src - 1);
+    let s1 = (((v1 as f64 - x) / scale).ceil().max(0.0) as u32).clamp(s0 + 1, src);
+    let span = s1 - s0;
+    let len = (v1 - v0) as u32;
+    let inner = ((v0 as f64 - x) - s0 as f64 * scale).round().max(0.0) as u32;
+    let t = ((span as f64 * scale).round() as u32).max(inner + len).max(1);
+    AxisPlan { s0, span, t, inner, len, pos: v0 as u32 }
+}
+
+/// Main video chain: fg cropped to its visible window, composited on the
+/// background. Cropping the *source* first keeps big zooms cheap (no
+/// 8× intermediate frames) and lets the fg sit partially off-canvas.
+fn compose(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
+    let Canvas { width: w, height: h } = spec.canvas;
+    let mut tf = String::new();
+    if spec.flip {
+        tf.push_str("hflip,");
+    }
+    match spec.rotate % 360 {
+        90 => tf.push_str("transpose=1,"),
+        180 => tf.push_str("transpose=2,transpose=2,"),
+        270 => tf.push_str("transpose=2,"),
+        _ => {}
+    }
+    let p = placement(spec, src_w, src_h);
+    let ax = axis_plan(p.x, p.w, p.scale, src_w, w);
+    let ay = axis_plan(p.y, p.h, p.scale, src_h, h);
+    let mut fg = String::new();
+    if ax.s0 != 0 || ay.s0 != 0 || ax.span != src_w || ay.span != src_h {
+        fg.push_str(&format!("crop={}:{}:{}:{}:exact=1,", ax.span, ay.span, ax.s0, ay.s0));
+    }
+    fg.push_str(&format!("scale={}:{}:flags=lanczos", ax.t, ay.t));
+    if ax.inner != 0 || ay.inner != 0 || ax.len != ax.t || ay.len != ay.t {
+        fg.push_str(&format!(",crop={}:{}:{}:{}:exact=1", ax.len, ay.len, ax.inner, ay.inner));
+    }
+    let covers = ax.pos == 0 && ay.pos == 0 && ax.len == w && ay.len == h;
+    let image_bg = matches!(spec.background, Background::Image { .. });
+    if covers && !image_bg {
+        return format!("{tf}{fg}");
+    }
+    let (dx, dy) = (ax.pos, ay.pos);
+    let mut out = match &spec.background {
+        Background::Solid { color } => format!("{tf}{fg},pad={w}:{h}:{dx}:{dy}:{color}"),
         Background::Blur { sigma, dim } => {
             let lum = 1.0 - dim.clamp(0.0, 0.95);
             // lutyuv replaces eq (GPL-only filter, absent in LGPL builds)
             format!(
-                "split[fg][bg];\
+                "{tf}split[fg][bg];\
                  [bg]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
                  crop={w}:{h},gblur=sigma={sigma},lutyuv=y='val*{lum}'[bg2];\
                  [fg]{fg}[fg2];\
-                 [bg2][fg2]overlay='(W-w)/2{ovx}':'(H-h)/2{ovy}'"
+                 [bg2][fg2]overlay={dx}:{dy}"
             )
         }
         Background::Image { blur, .. } => {
@@ -252,24 +281,27 @@ fn fit_graph(spec: &RenderSpec, w: u32, h: u32, iw: u32, ih: u32, ox: f64, oy: f
             format!(
                 "[1:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
                  crop={w}:{h}{gb}[bg2];\
-                 [0:v]{fg}[fg2];\
-                 [bg2][fg2]overlay='(W-w)/2{ovx}':'(H-h)/2{ovy}'"
+                 [0:v]{tf}{fg}[fg2];\
+                 [bg2][fg2]overlay={dx}:{dy}"
             )
         }
+    };
+    if p.border >= 1.0 && !covers {
+        let b = p.border.round() as i64;
+        out.push_str(&format!(
+            ",drawbox=x={}:y={}:w={}:h={}:color={}:t={b}",
+            (p.x - p.border).round() as i64,
+            (p.y - p.border).round() as i64,
+            (p.w + 2.0 * p.border).round() as i64,
+            (p.h + 2.0 * p.border).round() as i64,
+            spec.border.1,
+        ));
     }
+    out
 }
 
 fn clamp01(v: f64) -> f64 {
     v.clamp(-1.0, 1.0)
-}
-
-/// `+v*expr` / `-|v|*expr` — sign-aware so ffmpeg never sees `+-`.
-fn signed_mul(v: f64, expr: &str) -> String {
-    if v < 0.0 {
-        format!("-{}*{}", -v, expr)
-    } else {
-        format!("+{}*{}", v, expr)
-    }
 }
 
 fn fmt_fps(f: f64) -> String {
@@ -350,10 +382,8 @@ pub fn build_args(
         spec.input.clone(),
     ];
     // Second input: the background still (looped for the whole duration).
-    if let FitSpec::Fit { .. } = spec.fit {
-        if let Background::Image { path, .. } = &spec.background {
-            args.extend(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
-        }
+    if let Background::Image { path, .. } = &spec.background {
+        args.extend(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
     }
     // Overlay video input (index 2 when an image bg exists, else 1).
     if let Some(ov) = &spec.overlay {
@@ -600,10 +630,8 @@ pub fn preview_frame(
         "-i".into(),
         spec.input.clone(),
     ]);
-    if let FitSpec::Fit { .. } = spec.fit {
-        if let Background::Image { path, .. } = &spec.background {
-            cmd.args(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
-        }
+    if let Background::Image { path, .. } = &spec.background {
+        cmd.args(["-loop".into(), "1".into(), "-i".into(), path.clone()]);
     }
     if let Some(ov) = &spec.overlay {
         cmd.args(["-i".into(), ov.path.clone()]);
@@ -731,78 +759,106 @@ mod tests {
         }
     }
 
+    fn fill(zoom: f64, pan_x: f64, pan_y: f64) -> FitSpec {
+        FitSpec::Fill { offset_x: 0.0, offset_y: 0.0, zoom, pan_x, pan_y }
+    }
+
+    fn fit(zoom: f64, pan_x: f64, pan_y: f64) -> FitSpec {
+        FitSpec::Fit { zoom, offset_x: 0.0, offset_y: 0.0, pan_x, pan_y }
+    }
+
+    fn solid() -> Background {
+        Background::Solid { color: "#101418".into() }
+    }
+
     #[test]
-    fn fill_graph_scales_covers_and_crops() {
-        let g = filtergraph(
-            &spec(
-                FitSpec::Fill {
-                    offset_x: 0.0,
-                    offset_y: 0.0,
-                    zoom: 1.0,
-                },
-                Background::Solid {
-                    color: "#000000".into(),
-                },
-            ),
-            1920,
-            1080,
-        );
-        assert!(g.contains("force_original_aspect_ratio=increase"));
-        assert!(g.contains("crop=1080:1920"));
+    fn fill_covers_with_source_crop_and_no_background() {
+        let g = filtergraph(&spec(fill(1.0, 0.0, 0.0), solid()), 1920, 1080);
+        // 1920x1080 → cover 1080x1920 keeps a centred 608x1080 source strip.
+        assert!(g.starts_with("crop=608:1080:656:0:exact=1,scale="), "{g}");
+        assert!(g.contains(",crop=1080:1920:0:0:exact=1"), "{g}");
+        assert!(!g.contains("pad="), "covering fg needs no background: {g}");
         assert!(g.ends_with("format=yuv420p"));
         assert!(!g.contains("fps=")); // source fps → no fps filter
     }
 
     #[test]
-    fn fit_solid_graph_letterboxes() {
-        let g = filtergraph(
-            &spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Solid {
-                color: "#101418".into(),
-            }),
-            1920,
-            1080,
-        );
-        // fg dims are exact (fit-scale * shrink * zoom computed in Rust)
-        assert!(g.contains("scale=1080:608") || g.contains("scale=1080:606"));
-        // pad-then-crop handles fg both smaller and larger than the canvas
-        assert!(g.contains("pad='max(iw,1080)':'max(ih,1920)'"));
-        assert!(g.contains("crop=1080:1920"));
-        assert!(g.contains("#101418"));
+    fn fit_solid_letterboxes_with_pad() {
+        let g = filtergraph(&spec(fit(1.0, 0.0, 0.0), solid()), 1920, 1080);
+        assert!(g.starts_with("scale=1080:608:flags=lanczos,pad=1080:1920:0:656:#101418"), "{g}");
     }
 
     #[test]
-    fn fit_blur_graph_splits_and_overlays() {
+    fn fit_blur_splits_and_overlays_at_exact_position() {
         let g = filtergraph(
-            &spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Blur {
-                sigma: 20.0,
-                dim: 0.4,
-            }),
+            &spec(fit(1.0, 0.0, 0.0), Background::Blur { sigma: 20.0, dim: 0.4 }),
             1920,
             1080,
         );
-        for part in ["split[fg][bg]", "gblur=sigma=20", "lutyuv=y='val*0.6'", "overlay='(W-w)/2"] {
+        for part in ["split[fg][bg]", "gblur=sigma=20", "lutyuv=y='val*0.6'", "overlay=0:656"] {
             assert!(g.contains(part), "missing {part} in {g}");
         }
     }
 
     #[test]
-    fn offsets_clamp_into_crop_expressions() {
-        let g = filtergraph(
-            &spec(
-                FitSpec::Fill {
-                    offset_x: 2.0,
-                    offset_y: -5.0,
-                    zoom: 1.5,
-                },
-                Background::Solid {
-                    color: "#000000".into(),
-                },
-            ),
-            1920,
-            1080,
+    fn zoomed_out_fg_can_leave_the_canvas() {
+        // fg 540x304 pushed half a canvas right: only its left part is visible.
+        let s = spec(fit(0.5, 0.5, 0.0), solid());
+        let p = placement(&s, 1920, 1080);
+        assert!((p.x - 1080.0 + 270.0).abs() < 1e-6, "{p:?}");
+        let g = filtergraph(&s, 1920, 1080);
+        assert!(g.contains(",pad=1080:1920:810:"), "{g}");
+        assert!(g.starts_with("crop=960:1080:0:0:exact=1,scale=270:304"), "{g}");
+    }
+
+    #[test]
+    fn pan_is_zoom_independent() {
+        // Same pan at different zooms keeps the fg centre at the same spot.
+        for z in [0.3, 0.316, 0.5, 1.0, 2.0, 8.0] {
+            let p = placement(&spec(fill(z, 0.2, -0.1), solid()), 1920, 1080);
+            assert!((p.x + p.w / 2.0 - (540.0 + 216.0)).abs() < 1e-6, "zoom {z}: {p:?}");
+            assert!((p.y + p.h / 2.0 - (960.0 - 192.0)).abs() < 1e-6, "zoom {z}: {p:?}");
+        }
+    }
+
+    #[test]
+    fn big_zoom_crops_source_before_scaling() {
+        let g = filtergraph(&spec(fill(8.0, 0.0, 0.0), solid()), 1920, 1080);
+        // Never scales the whole frame to 8x: source is cropped first.
+        assert!(g.starts_with("crop=76:136:922:472:exact=1,scale="), "{g}");
+    }
+
+    #[test]
+    fn legacy_offsets_still_render_like_before() {
+        // Old Fill offset_x=1 pinned the source's right edge to the canvas edge.
+        let s = spec(
+            FitSpec::Fill { offset_x: 2.0, offset_y: -5.0, zoom: 1.5, pan_x: 0.0, pan_y: 0.0 },
+            solid(),
         );
-        assert!(g.contains("+1*(iw-1080)/2"), "{g}");
-        assert!(g.contains("-1*(ih-1920)/2"), "{g}");
+        let p = placement(&s, 1920, 1080);
+        assert!((p.x + p.w - 1080.0).abs() < 1e-6, "{p:?}");
+        assert!(p.y.abs() < 1e-6, "{p:?}");
+    }
+
+    #[test]
+    fn border_is_drawn_around_the_placed_fg() {
+        let mut s = spec(fit(1.0, 0.0, 0.0), solid());
+        s.border = (6.0, "#ffffff".into());
+        let g = filtergraph(&s, 1920, 1080);
+        assert!(g.contains("drawbox=x=-6:y=650:w=1092:h=620:color=#ffffff:t=6"), "{g}");
+    }
+
+    #[test]
+    fn rotation_and_flip_stay_inside_the_main_input_chain() {
+        let mut s = spec(fit(1.0, 0.0, 0.0), Background::Image { path: "bg.png".into(), blur: 0.0 });
+        s.rotate = 90;
+        s.flip = true;
+        let g = filtergraph(&s, 1920, 1080);
+        assert!(g.contains("[0:v]hflip,transpose=1,"), "{g}");
+        // Rotated 1080x1920 source exactly fills the 9:16 canvas.
+        assert!(g.contains("overlay=0:0"), "{g}");
+        let a = build_args(&s, &meta(), "h264_mf", Path::new("o.mp4")).join(" ");
+        assert!(a.contains("-loop 1 -i bg.png"), "{a}");
     }
 
     #[test]
@@ -824,7 +880,7 @@ mod tests {
 
     #[test]
     fn bitrate_scales_with_area_fps_and_quality() {
-        let mut s = spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Solid { color: "#000".into() });
+        let mut s = spec(fit(1.0, 0.0, 0.0), Background::Solid { color: "#000".into() });
         let b1080 = bitrate_kbps(&s, 30.0);
         s.canvas = Canvas { width: 720, height: 1280 };
         assert!(bitrate_kbps(&s, 30.0) < b1080);
@@ -836,7 +892,7 @@ mod tests {
     #[test]
     fn args_have_progress_pipe_and_faststart() {
         let a = build_args(
-            &spec(FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 }, Background::Solid { color: "#000".into() }),
+            &spec(fit(1.0, 0.0, 0.0), Background::Solid { color: "#000".into() }),
             &meta(),
             "h264_mf",
             Path::new("out.mp4"),

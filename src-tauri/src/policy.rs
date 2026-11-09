@@ -99,7 +99,7 @@ mod tests {
         RenderSpec {
             input: "a.mp4".into(),
             canvas: Canvas { width: 1080, height: 1920 },
-            fit: FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0 },
+            fit: FitSpec::Fit { zoom: 1.0, offset_x: 0.0, offset_y: 0.0, pan_x: 0.0, pan_y: 0.0 },
             overlay: None,
             rotate: 0,
             flip: false,

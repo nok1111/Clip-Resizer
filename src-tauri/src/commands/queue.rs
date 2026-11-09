@@ -84,7 +84,7 @@ pub fn enqueue_render(
     }
     let dir = PathBuf::from(&output_dir);
     if !dir.is_dir() {
-        return Err(CommandError::new("output_dir_missing", format!("{output_dir}")));
+        return Err(CommandError::new("output_dir_missing", output_dir.clone()));
     }
     crate::policy::Policy::for_edition(
         state.store.settings().map(|s| s.edition).unwrap_or_default(),

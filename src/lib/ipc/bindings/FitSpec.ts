@@ -2,5 +2,12 @@
 
 /**
  * How the source maps onto the canvas.
+ *
+ * Position model: `pan_x`/`pan_y` move the foreground centre by a fraction
+ * of the canvas (0 = centred, 0.5 = centre on the right/bottom edge). It is
+ * independent of zoom, so zooming never makes the framing jump.
+ * `offset_x`/`offset_y` are the legacy slack-relative offsets (-1..1),
+ * kept only so presets saved before pan existed still render the same;
+ * the UI folds them into pan and writes 0.
  */
-export type FitSpec = { "kind": "fill", offset_x: number, offset_y: number, zoom: number, } | { "kind": "fit", zoom: number, offset_x: number, offset_y: number, };
+export type FitSpec = { "kind": "fill", offset_x: number, offset_y: number, zoom: number, pan_x: number, pan_y: number, } | { "kind": "fit", zoom: number, offset_x: number, offset_y: number, pan_x: number, pan_y: number, };

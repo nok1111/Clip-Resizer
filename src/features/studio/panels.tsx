@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Film, Monitor, SlidersHorizontal, Smartphone, Square, type LucideIcon } from "lucide-react";
 import type { AspectPreset, AudioMode, QualityPreset, VideoCodec } from "@/lib/ipc";
 import { ASPECT_CANVAS, useStudioStore, specCanvas } from "@/stores/studio";
+import { freshFit, ZOOM_MAX, ZOOM_MIN } from "@/lib/framing";
 
 const PRESET_META: Record<Exclude<AspectPreset, "custom">, { icon: LucideIcon; sub: string }> = {
   "9:16": { icon: Smartphone, sub: "vertical" },
@@ -161,9 +163,7 @@ export function OptionsPanel() {
             onValueChange={(kind) =>
               setSpec({
                 fit:
-                  kind === "fill"
-                    ? { kind: "fill", offset_x: 0, offset_y: 0, zoom: 1 }
-                    : { kind: "fit", zoom: 1, offset_x: 0, offset_y: 0 },
+                  freshFit(kind),
               })
             }
             options={[
@@ -211,7 +211,27 @@ export function FitPanel() {
   const { t } = useTranslation();
   const spec = useStudioStore((s) => s.spec);
   const setSpec = useStudioStore((s) => s.setSpec);
+  const zoomTo = useStudioStore((s) => s.zoomTo);
+  const resetFraming = useStudioStore((s) => s.resetFraming);
   const fill = spec.fit.kind === "fill" ? spec.fit : null;
+  const framingControls = (
+    <>
+      <Range label={t("studio.zoom")} min={ZOOM_MIN} max={ZOOM_MAX} step={0.01} value={spec.fit.zoom}
+        onChange={(zoom) => zoomTo(zoom)} />
+      <Range label={t("studio.offsetX")} min={-1} max={1} step={0.01} value={spec.fit.pan_x ?? 0}
+        onChange={(pan_x) => setSpec({ fit: { ...spec.fit, pan_x } })} />
+      <Range label={t("studio.offsetY")} min={-1} max={1} step={0.01} value={spec.fit.pan_y ?? 0}
+        onChange={(pan_y) => setSpec({ fit: { ...spec.fit, pan_y } })} />
+      <button
+        type="button"
+        title={t("studio.framingHint")}
+        onClick={resetFraming}
+        className="self-start rounded-md border border-border bg-bg-secondary px-2 py-1 text-xs text-text hover:bg-bg cursor-pointer"
+      >
+        {t("studio.resetFraming")}
+      </button>
+    </>
+  );
 
   return (
     <Card>
@@ -224,9 +244,7 @@ export function FitPanel() {
           onValueChange={(kind) =>
             setSpec({
               fit:
-                kind === "fill"
-                  ? { kind: "fill", offset_x: 0, offset_y: 0, zoom: 1 }
-                  : { kind: "fit", zoom: 1, offset_x: 0, offset_y: 0 },
+                freshFit(kind),
             })
           }
           options={[
@@ -255,12 +273,7 @@ export function FitPanel() {
         </div>
         {fill ? (
           <>
-            <Range label={t("studio.zoom")} min={0.1} max={8} step={0.05} value={fill.zoom}
-              onChange={(zoom) => setSpec({ fit: { ...fill, zoom } })} />
-            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02} value={fill.offset_x}
-              onChange={(offset_x) => setSpec({ fit: { ...fill, offset_x } })} />
-            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02} value={fill.offset_y}
-              onChange={(offset_y) => setSpec({ fit: { ...fill, offset_y } })} />
+            {framingControls}
           </>
         ) : (
           <>
@@ -280,28 +293,7 @@ export function FitPanel() {
               ]}
               aria-label={t("studio.background")}
             />
-            <Range
-              label={t("studio.zoom")}
-              min={0.5}
-              max={8}
-              step={0.05}
-              value={spec.fit.kind === "fit" ? spec.fit.zoom : 1}
-              onChange={(zoom) =>
-                setSpec({
-                  fit: spec.fit.kind === "fit" ? { ...spec.fit, zoom } : spec.fit,
-                })
-              }
-            />
-            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02}
-              value={spec.fit.kind === "fit" ? spec.fit.offset_x : 0}
-              onChange={(offset_x) =>
-                setSpec({ fit: spec.fit.kind === "fit" ? { ...spec.fit, offset_x } : spec.fit })
-              } />
-            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02}
-              value={spec.fit.kind === "fit" ? spec.fit.offset_y : 0}
-              onChange={(offset_y) =>
-                setSpec({ fit: spec.fit.kind === "fit" ? { ...spec.fit, offset_y } : spec.fit })
-              } />
+            {framingControls}
             <Range label={t("studio.margin")} min={0} max={0.3} step={0.01} value={spec.margin}
               onChange={(margin) => setSpec({ margin })} />
             <Range label={t("studio.borderPx")} min={0} max={24} step={1} value={spec.border[0]}
@@ -509,9 +501,9 @@ export function OverlayPanel() {
           <>
             <Range label={t("studio.overlayScale")} min={0.05} max={1} step={0.05} value={ov.scale}
               onChange={(scale) => setSpec({ overlay: { ...ov, scale } })} />
-            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02} value={ov.offsetX}
+            <Range label={t("studio.offsetX")} min={-1} max={1} step={0.02} value={ov.offsetX}
               onChange={(offsetX) => setSpec({ overlay: { ...ov, offsetX } })} />
-            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02} value={ov.offsetY}
+            <Range label={t("studio.offsetY")} min={-1} max={1} step={0.02} value={ov.offsetY}
               onChange={(offsetY) => setSpec({ overlay: { ...ov, offsetY } })} />
           </>
         )}
@@ -579,9 +571,9 @@ export function WatermarkPanel() {
               onChange={(scale) => setSpec({ watermark: { ...wm, scale } })} />
             <Range label={t("studio.watermarkOpacity")} min={0.1} max={1} step={0.05} value={wm.opacity}
               onChange={(opacity) => setSpec({ watermark: { ...wm, opacity } })} />
-            <Range label={t("studio.offset_x")} min={-1} max={1} step={0.02} value={wm.offsetX}
+            <Range label={t("studio.offsetX")} min={-1} max={1} step={0.02} value={wm.offsetX}
               onChange={(offsetX) => setSpec({ watermark: { ...wm, offsetX } })} />
-            <Range label={t("studio.offset_y")} min={-1} max={1} step={0.02} value={wm.offsetY}
+            <Range label={t("studio.offsetY")} min={-1} max={1} step={0.02} value={wm.offsetY}
               onChange={(offsetY) => setSpec({ watermark: { ...wm, offsetY } })} />
           </>
         )}
@@ -606,6 +598,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Range({ label, min, max, step, value, onChange }: { label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void }) {
+  const digits = step < 0.1 ? 2 : step < 1 ? 1 : 0;
   return (
     <label className="flex items-center gap-3 text-xs text-text-secondary">
       <span className="w-16 shrink-0">{label}</span>
@@ -618,7 +611,40 @@ function Range({ label, min, max, step, value, onChange }: { label: string; min:
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-1.5 flex-1 cursor-pointer accent-[var(--cr-accent)]"
       />
-      <span className="w-10 text-right tabular-nums text-text">{value.toFixed(step < 0.1 ? 2 : step < 1 ? 1 : 0)}</span>
+      <NumberBox value={value} min={min} max={max} step={step} digits={digits} onChange={onChange} />
     </label>
+  );
+}
+
+/** Editable readout: commits on Enter/blur, Esc reverts, arrows nudge. */
+function NumberBox({ value, min, max, step, digits, onChange }: { value: number; min: number; max: number; step: number; digits: number; onChange: (v: number) => void }) {
+  const shown = value.toFixed(digits);
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const v = Number(draft.replace(",", "."));
+    setDraft(null);
+    if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
+  };
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={draft ?? shown}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        else if (e.key === "Escape") setDraft(null);
+        else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          const d = (e.key === "ArrowUp" ? 1 : -1) * step * (e.shiftKey ? 10 : 1);
+          setDraft(null);
+          onChange(Math.min(max, Math.max(min, Number((value + d).toFixed(6)))));
+        }
+      }}
+      className="w-12 rounded border border-transparent bg-transparent px-1 text-right tabular-nums text-text hover:border-border focus:border-accent focus:outline-none"
+    />
   );
 }

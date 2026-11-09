@@ -85,6 +85,8 @@
     "zoom": "Zoom",
     "offsetX": "Desl. X",
     "offsetY": "Desl. Y",
+    "resetFraming": "Redefinir enquadramento",
+    "framingHint": "Arraste para mover · roda para zoom no cursor · clique duplo para redefinir · segure Alt para desativar o ímã",
     "background": "Fundo",
     "bgBlur": "Desfoque",
     "bgSolid": "Sólido",

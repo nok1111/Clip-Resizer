@@ -85,6 +85,8 @@
     "zoom": "Zoom",
     "offsetX": "Pan X",
     "offsetY": "Pan Y",
+    "resetFraming": "Reset framing",
+    "framingHint": "Drag to move · wheel to zoom at the cursor · double-click to reset · hold Alt to disable snapping",
     "background": "Background",
     "bgBlur": "Blur",
     "bgSolid": "Solid",

@@ -13,6 +13,7 @@ import {
   type VideoCodec,
   type VideoMeta,
 } from "@/lib/ipc";
+import { constrain, frameCtx, freshFit, zoomAt, type FrameCtx } from "@/lib/framing";
 
 export interface StudioSpec {
   preset: AspectPreset;
@@ -41,7 +42,7 @@ export const ASPECT_CANVAS: Record<Exclude<AspectPreset, "custom">, Canvas> = {
 export const DEFAULT_SPEC: StudioSpec = {
   preset: "9:16",
   custom: { width: 1080, height: 1920 },
-  fit: { kind: "fit", zoom: 1, offset_x: 0, offset_y: 0 },
+  fit: freshFit("fit"),
   background: { kind: "blur", sigma: 20, dim: 0.35 },
   margin: 0,
   border: [0, "#ffffff"],
@@ -55,6 +56,23 @@ export const DEFAULT_SPEC: StudioSpec = {
 
 export function specCanvas(s: StudioSpec): Canvas {
   return s.preset === "custom" ? s.custom : ASPECT_CANVAS[s.preset];
+}
+
+export function specFrameCtx(s: StudioSpec, meta: { width: number; height: number }): FrameCtx {
+  return frameCtx(specCanvas(s), meta, s.rotate, s.margin, s.border[0]);
+}
+
+/** Folds legacy offsets into pan and keeps pan valid for the current spec. */
+function normalizeFraming(s: StudioSpec, meta: VideoMeta | null | undefined): StudioSpec {
+  if (!meta) return s;
+  const fit = constrain(s.fit, specFrameCtx(s, meta));
+  return fit === s.fit ? s : { ...s, fit };
+}
+
+let resolvedCodec: VideoCodec | null = null;
+
+function selectedMeta(s: { items: StudioItem[]; selected: string | null }): VideoMeta | null {
+  return s.items.find((i) => i.path === s.selected)?.meta ?? null;
 }
 
 export function buildRenderSpec(input: string, s: StudioSpec): RenderSpec {
@@ -132,6 +150,9 @@ interface StudioState {
   ensureThumb: (path: string) => Promise<void>;
   spec: StudioSpec;
   setSpec: (patch: Partial<StudioSpec>) => void;
+  /** Zoom keeping `anchor` (canvas px, default centre) fixed on screen. */
+  zoomTo: (zoom: number, anchor?: { x: number; y: number }) => void;
+  resetFraming: () => void;
   render: RenderState;
   encoderName: string | null;
   previewFrameUrl: string | null;
@@ -250,48 +271,31 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   spec: DEFAULT_SPEC,
   setSpec: (patch) => {
     const cur = get().spec;
-    let fit = patch.fit;
-    // Keep the source point under the canvas center anchored while zooming:
-    // offsets are slack-relative, so an unadjusted offset makes the view
-    // drift (feels like "the last offset replays instead of zooming").
-    if (
-      fit &&
-      fit.kind === cur.fit.kind &&
-      "zoom" in fit &&
-      "zoom" in cur.fit &&
-      fit.zoom !== cur.fit.zoom
-    ) {
-      const meta = get().items.find((i) => i.path === get().selected)?.meta;
-      if (meta) {
-        const cv = specCanvas(cur);
-        const cover = Math.max(cv.width / meta.width, cv.height / meta.height);
-        const fitS = Math.min(cv.width / meta.width, cv.height / meta.height);
-        const scaleOf = (f: StudioSpec["fit"]) =>
-          f.kind === "fill" ? cover * f.zoom : fitS * (1 - 2 * cur.margin) * f.zoom;
-        const keep = (o: number, canvas: number, src: number, s1: number, s2: number) => {
-          const c2 = canvas / (src * s2);
-          const span = 1 - c2;
-          if (Math.abs(span) < 1e-6) return 0;
-          const f = (1 + o * (1 - canvas / (src * s1))) / 2;
-          return Math.max(-1, Math.min(1, (2 * f - 1) / span));
-        };
-        const s1 = scaleOf(cur.fit);
-        const s2 = scaleOf(fit);
-        fit = {
-          ...fit,
-          offset_x: keep(fit.offset_x, cv.width, meta.width, s1, s2),
-          offset_y: keep(fit.offset_y, cv.height, meta.height, s1, s2),
-        };
-      }
+    const next = normalizeFraming({ ...cur, ...patch }, selectedMeta(get()));
+    set({ spec: next, previewFrameUrl: null });
+    // Keep the honest encoder name in sync with the codec choice — only
+    // when the codec actually changes (setSpec runs on every drag move).
+    const codec = next.export.codec;
+    if (codec !== resolvedCodec) {
+      resolvedCodec = codec;
+      void ipc
+        .resolveEncoder(codec)
+        .then((e) => {
+          if (resolvedCodec === codec) set({ encoderName: e });
+        })
+        .catch(() => set({ encoderName: null }));
     }
-    set({ spec: { ...cur, ...patch, ...(fit ? { fit } : {}) }, previewFrameUrl: null });
-    // Keep the honest encoder name in sync with the codec choice.
-    const codec: VideoCodec = (patch.export?.codec ?? get().spec.export.codec) as VideoCodec;
-    void ipc
-      .resolveEncoder(codec)
-      .then((e) => set({ encoderName: e }))
-      .catch(() => set({ encoderName: null }));
   },
+  zoomTo: (zoom, anchor) => {
+    const s = get().spec;
+    const meta = selectedMeta(get());
+    if (!meta) {
+      set({ spec: { ...s, fit: { ...s.fit, zoom } }, previewFrameUrl: null });
+      return;
+    }
+    set({ spec: { ...s, fit: zoomAt(s.fit, specFrameCtx(s, meta), zoom, anchor) }, previewFrameUrl: null });
+  },
+  resetFraming: () => get().setSpec({ fit: freshFit(get().spec.fit.kind) }),
   render: idleRender,
   encoderName: null,
   previewFrameUrl: null,
