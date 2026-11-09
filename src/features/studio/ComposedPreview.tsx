@@ -125,6 +125,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         spec.background.kind === "blur"
           ? {
               width: `${(meta.width * cover * 100) / canvas.width}%`,
+              maxWidth: "none",
               aspectRatio: vidRatio,
               height: "auto",
               left: "50%",
@@ -140,6 +141,9 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
       imageBlur: spec.background.kind === "image" ? spec.background.blur / 2 : 0,
       fg: {
         width: `${(meta.width * p.scale * 100) / canvas.width}%`,
+        // Preflight caps <video> at max-width:100%, which froze zoom-in at
+        // the canvas width.
+        maxWidth: "none",
         aspectRatio: vidRatio,
         height: "auto",
         left: `${((p.x + p.w / 2) * 100) / canvas.width}%`,
@@ -344,7 +348,11 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               )}
             </svg>
           )}
-          {/* Canvas boundary — always visible above the bleeding fg. */}
+          {/* Canvas boundary; the fg bleeding past it is dimmed (export crops it). */}
+          <div
+            className="pointer-events-none absolute inset-0 rounded-md"
+            style={{ boxShadow: "0 0 0 100vmax rgba(0,0,0,0.6)" }}
+          />
           <div className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-inset ring-white/50" />
           {/* Guide overlays — preview only unless spec.guides.export */}
           {spec.guides.thirds && (
