@@ -400,9 +400,11 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               </span>
             </button>
           )}
-          {/* Player bar — floats over the video bottom. */}
+        </div>
+      </div>
+      {/* Player bar — below the stage so a narrow 9:16 canvas never clips it. */}
           <div
-            className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-8"
+            className="flex shrink-0 items-center gap-1.5 border-t border-border bg-black/50 px-3 py-1.5"
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
             data-no-wheel
@@ -449,8 +451,6 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               onClick={() => { const el = stageRef.current; if (el?.requestFullscreen) void el.requestFullscreen(); }}
               className="rounded p-1 text-white/80 hover:text-white cursor-pointer"><Maximize size={15} /></button>
           </div>
-        </div>
-      </div>
     </div>
   );
 }

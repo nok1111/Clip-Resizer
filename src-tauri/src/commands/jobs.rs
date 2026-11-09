@@ -23,7 +23,7 @@ pub fn list_encoders() -> CommandResult<Vec<String>> {
 /// The encoder that will actually be used for a spec (honest UI).
 #[tauri::command]
 pub fn resolve_encoder(codec: cr_model::VideoCodec) -> CommandResult<Option<String>> {
-    Ok(render::pick_encoder(codec, &render::encoders()?))
+    Ok(render::pick_working_encoder(codec, &render::encoders()?))
 }
 
 /// Renders one frame through the real filtergraph → clipthumb:// URL.
@@ -46,10 +46,9 @@ pub async fn preview_frame(
     let thumbs = state.thumbs_dir.clone();
     // Frame previews reuse the thumbnail cache: seek + canvas in the key.
     let seek = t_s.max(0.0);
-    let key_seed = format!(
-        "frame|{}x{}|{:?}|{:?}|{seek:.2}",
-        spec.canvas.width, spec.canvas.height, spec.fit, spec.background
-    );
+    // Whole spec in the key: rotate/flip/margin/border/overlay/watermark
+    // all change the frame.
+    let key_seed = format!("frame|{spec:?}|{seek:.2}");
     tauri::async_runtime::spawn_blocking(move || {
         let name = thumbnails::named_key(&p, &key_seed)?;
         let file = thumbs.join(&name);
@@ -117,13 +116,17 @@ pub fn start_render(
     if final_path.canonicalize().ok() == input.canonicalize().ok() {
         return Err(CommandError::new("invalid_job", "output path equals the input"));
     }
+    if state.queue.running.load(Ordering::SeqCst) {
+        return Err(CommandError::new("busy", "the batch queue is rendering"));
+    }
     let encoders = render::encoders()?;
-    let encoder = render::pick_encoder(spec.export.codec, &encoders).ok_or_else(|| {
-        CommandError::new(
+    let candidates = render::working_encoders(spec.export.codec, &encoders);
+    if candidates.is_empty() {
+        return Err(CommandError::new(
             "no_encoder",
-            format!("no {:?} encoder available in this FFmpeg build", spec.export.codec),
-        )
-    })?;
+            format!("no working {:?} encoder on this machine", spec.export.codec),
+        ));
+    }
 
     let cancel = Arc::new(AtomicBool::new(false));
     {
@@ -154,17 +157,26 @@ pub fn start_render(
             let tmp2 = tmp.clone();
             let tx2 = tx.clone();
             let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-                let mut _job = None;
-                render::run_render(&spec2, &meta2, &encoder, &tmp2, &cancel2, |p| {
-                    let _ = tx2.send(RenderEvent::Progress {
-                        pct: p.frac * 100.0,
-                        out_s: p.out_s,
-                        speed: p.speed,
-                        size: p.size,
+                let mut last = Ok(());
+                for encoder in &candidates {
+                    let mut _job = None;
+                    last = render::run_render(&spec2, &meta2, encoder, &tmp2, &cancel2, |p| {
+                        let _ = tx2.send(RenderEvent::Progress {
+                            pct: p.frac * 100.0,
+                            out_s: p.out_s,
+                            speed: p.speed,
+                            size: p.size,
+                        });
+                    }, |child| {
+                        _job = crate::job_object::JobObject::for_child(child).ok();
                     });
-                }, |child| {
-                    _job = crate::job_object::JobObject::for_child(child).ok();
-                })
+                    match &last {
+                        Err(e) if !cancel2.load(Ordering::Relaxed)
+                            && render::encoder_failed_to_open(encoder, e) => continue,
+                        _ => break,
+                    }
+                }
+                last
             }));
             drop(tx);
             let _ = forwarder.join();
@@ -195,6 +207,17 @@ pub fn start_render(
                             }
                         } else {
                             let bytes = std::fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0);
+                            let finished = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|d| d.as_millis() as i64)
+                                .unwrap_or(0);
+                            let _ = app.state::<AppState>().store.insert_render(
+                                &spec.input,
+                                &out_path.to_string_lossy(),
+                                "done",
+                                bytes as i64,
+                                finished,
+                            );
                             if let Ok(mut v) = app.state::<AppState>().viewable.lock() {
                                 v.insert(out_path.clone());
                             }

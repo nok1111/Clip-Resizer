@@ -5,7 +5,9 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
 
 use cr_model::{
     AudioMode, Background, Canvas, FitSpec, QualityPreset, RenderSpec, VideoCodec, VideoMeta,
@@ -63,15 +65,76 @@ const HEVC_ORDER: &[&str] = &[
     "libkvazaar",
 ];
 
-pub fn pick_encoder(codec: VideoCodec, available: &[String]) -> Option<String> {
-    let order = match codec {
+fn order(codec: VideoCodec) -> &'static [&'static str] {
+    match codec {
         VideoCodec::H264 => H264_ORDER,
         VideoCodec::H265 => HEVC_ORDER,
-    };
-    order
+    }
+}
+
+pub fn pick_encoder(codec: VideoCodec, available: &[String]) -> Option<String> {
+    order(codec)
         .iter()
         .find(|e| available.iter().any(|a| a == *e))
         .map(|s| s.to_string())
+}
+
+/// Listed encoders for `codec`, in priority order, that actually open on
+/// this machine. A build lists hardware encoders whose GPU/driver may be
+/// missing (e.g. nvenc on an AMD box), so each is test-encoded once.
+pub fn working_encoders(codec: VideoCodec, available: &[String]) -> Vec<String> {
+    order(codec)
+        .iter()
+        .filter(|e| available.iter().any(|a| a == *e) && encoder_works(e))
+        .map(|s| s.to_string())
+        .collect()
+}
+
+pub fn pick_working_encoder(codec: VideoCodec, available: &[String]) -> Option<String> {
+    working_encoders(codec, available).into_iter().next()
+}
+
+fn encoder_cache() -> &'static Mutex<HashMap<String, bool>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
+    CACHE.get_or_init(Default::default)
+}
+
+/// One-frame null encode; cached for the process lifetime.
+pub fn encoder_works(encoder: &str) -> bool {
+    if let Some(&ok) = encoder_cache().lock().ok().as_ref().and_then(|c| c.get(encoder)) {
+        return ok;
+    }
+    let ok = crate::ffmpeg().is_ok_and(|bin| {
+        Command::new(bin)
+            .args([
+                "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                "color=s=256x256:d=0.1:r=10", "-frames:v", "1", "-c:v", encoder, "-f", "null", "-",
+            ])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    });
+    if let Ok(mut c) = encoder_cache().lock() {
+        c.insert(encoder.to_string(), ok);
+    }
+    ok
+}
+
+/// A render failed because the encoder could not start (not the graph):
+/// skip it from now on so the caller can retry with the next candidate.
+pub fn encoder_failed_to_open(encoder: &str, err: &FfmpegError) -> bool {
+    let msg = err.to_string();
+    let open_failure = ["opening encoder", "Could not open encoder", "Cannot load", "No capable devices"]
+        .iter()
+        .any(|m| msg.contains(m));
+    if open_failure {
+        if let Ok(mut c) = encoder_cache().lock() {
+            c.insert(encoder.to_string(), false);
+        }
+    }
+    open_failure
 }
 
 // ── Filtergraph ─────────────────────────────────────────────────────────────

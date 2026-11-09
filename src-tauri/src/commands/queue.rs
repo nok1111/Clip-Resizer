@@ -90,6 +90,9 @@ pub fn enqueue_render(
         state.store.settings().map(|s| s.edition).unwrap_or_default(),
     )
     .check_batch(&specs)?;
+    if state.running_render.lock().is_ok_and(|s| s.is_some()) {
+        return Err(CommandError::new("busy", "a studio render is running"));
+    }
     let encoders = render::encoders()?;
     let mut ids = Vec::new();
     {
@@ -109,14 +112,14 @@ pub fn enqueue_render(
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_else(|| spec.input.clone());
             let mut spec = spec;
-            if render::pick_encoder(spec.export.codec, &encoders).is_none() {
+            if render::pick_working_encoder(spec.export.codec, &encoders).is_none() {
                 // Fallback to the other codec when the requested one is absent.
                 spec.export.codec = match spec.export.codec {
                     cr_model::VideoCodec::H264 => cr_model::VideoCodec::H265,
                     cr_model::VideoCodec::H265 => cr_model::VideoCodec::H264,
                 };
-                if render::pick_encoder(spec.export.codec, &encoders).is_none() {
-                    return Err(CommandError::new("no_encoder", "no video encoder available"));
+                if render::pick_working_encoder(spec.export.codec, &encoders).is_none() {
+                    return Err(CommandError::new("no_encoder", "no working video encoder on this machine"));
                 }
             }
             entries.push_back(Entry {
@@ -134,13 +137,6 @@ pub fn enqueue_render(
             ids.push(id);
         }
         drop(next);
-        let out_dir = dir.clone();
-        entries.iter_mut().for_each(|e| {
-            if e.item.status == QueueStatus::Pending && e.spec.export.fps.is_none() {
-                // keep as-is
-            }
-            let _ = &out_dir;
-        });
     }
     emit(&state.queue, QueueEvent::Snapshot { items: snapshot(&state.queue) });
     spawn_worker(&app, dir, conflict);
@@ -188,9 +184,8 @@ fn spawn_worker(app: &AppHandle, dir: PathBuf, conflict: ConflictPolicy) {
                     let c = entries.iter_mut().find_map(|e| {
                         (e.item.status == QueueStatus::Pending).then(|| {
                             e.item.status = QueueStatus::Processing;
-                            let encoder =
-                                render::pick_encoder(e.spec.export.codec, &encoders).unwrap_or_default();
-                            (e.item.id, e.spec.clone(), e.cancel.clone(), encoder)
+                            let candidates = render::working_encoders(e.spec.export.codec, &encoders);
+                            (e.item.id, e.spec.clone(), e.cancel.clone(), candidates)
                         })
                     });
                     if c.is_none() {
@@ -199,7 +194,7 @@ fn spawn_worker(app: &AppHandle, dir: PathBuf, conflict: ConflictPolicy) {
                     }
                     c
                 };
-                let Some((id, spec, cancel, encoder)) = claimed else {
+                let Some((id, spec, cancel, candidates)) = claimed else {
                     return; // unreachable: c.is_none() exits under the lock
                 };
                 emit(&state.queue, QueueEvent::Item {
@@ -240,26 +235,38 @@ fn spawn_worker(app: &AppHandle, dir: PathBuf, conflict: ConflictPolicy) {
                                 }
                             })
                         };
-                        let mut _job = None;
-                        let r = render::run_render(
-                            &spec,
-                            &meta,
-                            &encoder,
-                            &tmp,
-                            &cancel,
-                            |p| {
-                                let _ = tx.send(p.frac * 100.0);
-                            },
-                            |child| {
-                                _job = crate::job_object::JobObject::for_child(child).ok();
-                            },
-                        );
+                        let mut r = Err(cr_ffmpeg::FfmpegError::Parse(
+                            "no working video encoder on this machine".into(),
+                        ));
+                        for encoder in &candidates {
+                            let mut _job = None;
+                            r = render::run_render(
+                                &spec,
+                                &meta,
+                                encoder,
+                                &tmp,
+                                &cancel,
+                                |p| {
+                                    let _ = tx.send(p.frac * 100.0);
+                                },
+                                |child| {
+                                    _job = crate::job_object::JobObject::for_child(child).ok();
+                                },
+                            );
+                            match &r {
+                                Err(e) if !cancel.load(Ordering::Relaxed)
+                                    && render::encoder_failed_to_open(encoder, e) => continue,
+                                _ => break,
+                            }
+                        }
                         drop(tx);
                         let _ = fwd.join();
                         match (r, cancel.load(Ordering::Relaxed)) {
                             (Ok(()), false) => match render::verify_output(&tmp, spec.canvas, meta.duration_ms) {
-                                Ok(()) => {
-                                    let _ = std::fs::rename(&tmp, &final_path);
+                                Ok(()) => if let Err(e) = std::fs::rename(&tmp, &final_path) {
+                                    let _ = std::fs::remove_file(&tmp);
+                                    (QueueStatus::Failed, None, Some(format!("publish failed: {e}")))
+                                } else {
                                     let bytes = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0) as i64;
                                     let finished = std::time::SystemTime::now()
                                         .duration_since(std::time::UNIX_EPOCH)

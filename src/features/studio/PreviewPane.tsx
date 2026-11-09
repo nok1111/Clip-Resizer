@@ -52,9 +52,11 @@ export function PreviewPane() {
         )}
       </div>
 
-      <div className="max-h-[46%] overflow-y-auto border-t border-border">
+      {/* Container queries: the pane is ~half the window, so viewport
+          breakpoints would cram four panels into it. */}
+      <div className="@container max-h-[46%] overflow-y-auto border-t border-border">
         {item && (
-          <div className="grid gap-3 p-4 md:grid-cols-2">
+          <div className="grid gap-3 p-4 @xl:grid-cols-2">
             <FormatPanel />
             <div className="flex flex-col gap-3">
               <OptionsPanel />
@@ -81,7 +83,7 @@ export function PreviewPane() {
           </div>
         )}
         {item && (
-          <div className="grid gap-3 px-4 pb-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 px-4 pb-4 @xl:grid-cols-2 @6xl:grid-cols-4">
             <FitPanel />
             <OverlayPanel />
             <WatermarkPanel />
