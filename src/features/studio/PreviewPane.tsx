@@ -13,7 +13,7 @@ export function PreviewPane() {
   const playError = item != null && playErrorPath === item.path;
 
   return (
-    <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0">
+    <Card className="@container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0">
       <FormatBar />
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black/40">
         {!item && (

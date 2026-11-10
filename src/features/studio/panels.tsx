@@ -42,14 +42,14 @@ export function FormatBar() {
   };
   const chip = (active: boolean) =>
     cn(
-      "flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors cursor-pointer",
+      "flex h-7 items-center gap-1.5 rounded-full border px-2 text-xs font-medium transition-colors cursor-pointer @xl:px-2.5",
       active
         ? "border-accent bg-accent/20 text-text"
         : "border-border bg-bg-secondary text-text-secondary hover:border-accent/50 hover:text-text",
     );
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2" data-no-wheel>
+    <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-2 @xl:gap-1.5 @xl:px-3" data-no-wheel>
       {presets.map((p) => {
         return (
           <button key={p} type="button" title={t(`studio.sub.${PRESET_META[p].sub}`)} onClick={() => setSpec({ preset: p })} className={chip(spec.preset === p)}>
@@ -57,9 +57,9 @@ export function FormatBar() {
           </button>
         );
       })}
-      <button type="button" onClick={() => setSpec({ preset: "custom" })} className={chip(spec.preset === "custom")}>
+      <button type="button" title={t("studio.custom")} aria-label={t("studio.custom")} onClick={() => setSpec({ preset: "custom" })} className={chip(spec.preset === "custom")}>
         <SlidersHorizontal className="size-3.5" />
-        {t("studio.custom")}
+        <span className="hidden @2xl:inline">{t("studio.custom")}</span>
       </button>
       {spec.preset === "custom" ? (
         <span className="flex items-center gap-1">
@@ -86,10 +86,10 @@ export function FormatBar() {
           }}
           options={[
             ...RESOLUTIONS.map((r) => ({ value: String(r.h), label: t(`studio.res.${r.key}`) })),
-            ...(RESOLUTIONS.some((r) => String(r.h) === resKey) ? [] : [{ value: "custom", label: `${canvas.width} × ${canvas.height}` }]),
+            ...(RESOLUTIONS.some((r) => String(r.h) === resKey) ? [] : [{ value: "custom", label: `${canvas.width}×${canvas.height}` }]),
           ]}
           aria-label={t("studio.resolution")}
-          className="h-7 w-auto min-w-0 text-xs"
+          className="h-7 w-[100px] min-w-0 px-2 text-xs @2xl:w-auto @2xl:px-3"
         />
       )}
     </div>
