@@ -161,7 +161,8 @@
     "frameOptions": "Frame",
     "position": "Position",
     "bgHiddenFill": "Fill covers the canvas: the background only shows when you zoom out.",
-    "marginFitOnly": "Margin and border apply in Fit mode."
+    "marginFitOnly": "Margin and border apply in Fit mode.",
+    "bgReset": "Reset image"
   },
   "settings": {
     "title": "Settings",

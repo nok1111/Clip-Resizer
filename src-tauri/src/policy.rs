@@ -135,7 +135,7 @@ mod tests {
         s.export.bitrate_kbps = Some(10_000);
         assert!(Policy::Free.check_render(&s).is_err());
         let mut s = spec();
-        s.background = Background::Image { path: "x.png".into(), blur: 0.0 };
+        s.background = Background::Image { path: "x.png".into(), blur: 0.0, dim: 0.0, zoom: 1.0, pan_x: 0.0, pan_y: 0.0 };
         assert!(Policy::Free.check_render(&s).is_err());
         let mut s = spec();
         s.guides.export = true;
@@ -147,7 +147,7 @@ mod tests {
         let mut s = spec();
         s.export.codec = VideoCodec::H265;
         s.canvas = Canvas { width: 2160, height: 3840 };
-        s.background = Background::Image { path: "x.png".into(), blur: 0.0 };
+        s.background = Background::Image { path: "x.png".into(), blur: 0.0, dim: 0.0, zoom: 1.0, pan_x: 0.0, pan_y: 0.0 };
         assert!(Policy::Pro.check_batch(&[s.clone(), s]).is_ok());
     }
 }

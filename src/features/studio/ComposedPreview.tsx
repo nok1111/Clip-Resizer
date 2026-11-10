@@ -139,7 +139,26 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
         spec.background.kind === "image" && spec.background.path
           ? convertFileSrc(spec.background.path)
           : null,
-      imageBlur: spec.background.kind === "image" ? spec.background.blur / 2 : 0,
+      // Mirrors ffmpeg: cover a zoom-scaled canvas, crop the window at pan.
+      imageStyle: (() => {
+        const b = spec.background;
+        if (b.kind !== "image") return undefined;
+        const z = Math.min(4, Math.max(1, Number.isFinite(b.zoom) ? b.zoom : 1));
+        const fx = (1 + Math.max(-1, Math.min(1, b.pan_x ?? 0))) / 2;
+        const fy = (1 + Math.max(-1, Math.min(1, b.pan_y ?? 0))) / 2;
+        const filter = [b.blur > 0 ? `blur(${b.blur / 2}px)` : "", b.dim > 0 ? `brightness(${1 - Math.min(0.95, b.dim)})` : ""]
+          .filter(Boolean)
+          .join(" ");
+        return {
+          width: `${z * 100}%`,
+          height: `${z * 100}%`,
+          maxWidth: "none",
+          left: `${-(z - 1) * 100 * fx}%`,
+          top: `${-(z - 1) * 100 * fy}%`,
+          objectPosition: `${fx * 100}% ${fy * 100}%`,
+          filter: filter || undefined,
+        };
+      })(),
       fg: {
         width: `${(meta.width * p.scale * 100) / canvas.width}%`,
         // Preflight caps <video> at max-width:100%, which froze zoom-in at
@@ -221,8 +240,8 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               <img
                 src={layers.imageUrl}
                 alt=""
-                className="absolute size-full object-cover"
-                style={{ filter: layers.imageBlur ? `blur(${layers.imageBlur}px)` : undefined }}
+                className="absolute object-cover"
+                style={layers.imageStyle}
                 draggable={false}
               />
             )}

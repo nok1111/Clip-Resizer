@@ -338,12 +338,23 @@ fn compose(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
                  [bg2][fg2]overlay={dx}:{dy}"
             )
         }
-        Background::Image { blur, .. } => {
-            // Input 1 is the still; loop it as a video stream.
+        Background::Image { blur, dim, zoom, pan_x, pan_y, .. } => {
+            // Input 1 is the still; loop it as a video stream. Cover a
+            // zoom-scaled canvas, then crop the canvas window at pan.
+            let z = if zoom.is_finite() { zoom.clamp(1.0, 4.0) } else { 1.0 };
+            let zw = (w as f64 * z).ceil() as u32;
+            let zh = (h as f64 * z).ceil() as u32;
+            let fx = (1.0 + pan_x.clamp(-1.0, 1.0)) / 2.0;
+            let fy = (1.0 + pan_y.clamp(-1.0, 1.0)) / 2.0;
             let gb = if *blur > 0.0 { format!(",gblur=sigma={blur}") } else { String::new() };
+            let dm = if *dim > 0.0 {
+                format!(",lutyuv=y='val*{}'", 1.0 - dim.clamp(0.0, 0.95))
+            } else {
+                String::new()
+            };
             format!(
-                "[1:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,\
-                 crop={w}:{h}{gb}[bg2];\
+                "[1:v]scale={zw}:{zh}:force_original_aspect_ratio=increase:flags=lanczos,\
+                 crop={w}:{h}:'(iw-ow)*{fx:.4}':'(ih-oh)*{fy:.4}'{gb}{dm}[bg2];\
                  [0:v]{tf}{fg}[fg2];\
                  [bg2][fg2]overlay={dx}:{dy}"
             )
@@ -912,8 +923,23 @@ mod tests {
     }
 
     #[test]
+    fn image_background_zoom_pan_blur_and_dim() {
+        let bg = Background::Image { path: "bg.png".into(), blur: 4.0, dim: 0.3, zoom: 2.0, pan_x: 1.0, pan_y: -1.0 };
+        let g = filtergraph(&spec(fit(1.0, 0.0, 0.0), bg), 1920, 1080);
+        assert!(g.contains("[1:v]scale=2160:3840:force_original_aspect_ratio=increase"), "{g}");
+        assert!(g.contains("crop=1080:1920:'(iw-ow)*1.0000':'(ih-oh)*0.0000'"), "{g}");
+        assert!(g.contains("gblur=sigma=4,lutyuv=y='val*0.7'[bg2]"), "{g}");
+    }
+
+    #[test]
+    fn legacy_image_background_deserializes_with_defaults() {
+        let bg: Background = serde_json::from_str(r#"{"kind":"image","path":"a.png","blur":2}"#).unwrap();
+        assert_eq!(bg, Background::Image { path: "a.png".into(), blur: 2.0, dim: 0.0, zoom: 1.0, pan_x: 0.0, pan_y: 0.0 });
+    }
+
+    #[test]
     fn rotation_and_flip_stay_inside_the_main_input_chain() {
-        let mut s = spec(fit(1.0, 0.0, 0.0), Background::Image { path: "bg.png".into(), blur: 0.0 });
+        let mut s = spec(fit(1.0, 0.0, 0.0), Background::Image { path: "bg.png".into(), blur: 0.0, dim: 0.0, zoom: 1.0, pan_x: 0.0, pan_y: 0.0 });
         s.rotate = 90;
         s.flip = true;
         let g = filtergraph(&s, 1920, 1080);

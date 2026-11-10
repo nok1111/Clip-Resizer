@@ -226,8 +226,21 @@ pub enum Background {
     Solid { color: String },
     /// Enlarged blurred copy of the video behind the fitted frame.
     Blur { sigma: f64, dim: f64 },
-    /// Imported still image; `blur` optionally softens it (0 = off).
-    Image { path: String, blur: f64 },
+    /// Imported still image, scaled to cover the canvas. `blur` softens it
+    /// (0 = off), `dim` darkens 0..0.95, `zoom` ≥ 1 enlarges it and
+    /// `pan_x`/`pan_y` (-1..1) pick which part of the enlarged image shows.
+    Image {
+        path: String,
+        blur: f64,
+        #[serde(default)]
+        dim: f64,
+        #[serde(default = "fit_zoom_default")]
+        zoom: f64,
+        #[serde(default)]
+        pan_x: f64,
+        #[serde(default)]
+        pan_y: f64,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]

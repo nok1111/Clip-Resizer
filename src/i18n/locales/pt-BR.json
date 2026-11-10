@@ -161,7 +161,8 @@
     "frameOptions": "Moldura",
     "position": "Posição",
     "bgHiddenFill": "Preencher cobre a tela: o fundo só aparece ao reduzir o zoom.",
-    "marginFitOnly": "Margem e borda se aplicam no modo Ajustar."
+    "marginFitOnly": "Margem e borda se aplicam no modo Ajustar.",
+    "bgReset": "Redefinir imagem"
   },
   "settings": {
     "title": "Configurações",

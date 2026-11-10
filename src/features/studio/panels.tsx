@@ -174,18 +174,38 @@ export function BackgroundPanel() {
   const spec = useStudioStore((s) => s.spec);
   const setSpec = useStudioStore((s) => s.setSpec);
   const bg = spec.background;
+  const pickBg = async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const p = await open({ filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp"] }] });
+    if (typeof p !== "string") return;
+    const cur = bg.kind === "image" ? bg : null;
+    setSpec({
+      background: {
+        kind: "image",
+        path: p,
+        blur: cur?.blur ?? 0,
+        dim: cur?.dim ?? 0,
+        zoom: cur?.zoom ?? 1,
+        pan_x: cur?.pan_x ?? 0,
+        pan_y: cur?.pan_y ?? 0,
+      },
+    });
+  };
   return (
     <Section title={t("studio.background")}>
       <Segmented
-        value={bg.kind === "solid" ? "solid" : "blur"}
-        onValueChange={(kind) =>
-          setSpec({
-            background: kind === "blur" ? { kind: "blur", sigma: 20, dim: 0.35 } : { kind: "solid", color: "#101418" },
-          })
-        }
+        value={bg.kind}
+        onValueChange={(kind) => {
+          if (kind === "image") void pickBg();
+          else
+            setSpec({
+              background: kind === "blur" ? { kind: "blur", sigma: 20, dim: 0.35 } : { kind: "solid", color: "#101418" },
+            });
+        }}
         options={[
           { value: "blur", label: t("studio.bgBlur") },
           { value: "solid", label: t("studio.bgSolid") },
+          { value: "image", label: t("studio.bgImage") },
         ]}
         aria-label={t("studio.background")}
       />
@@ -199,6 +219,34 @@ export function BackgroundPanel() {
             onChange={(sigma) => setSpec({ background: { kind: "blur", sigma, dim: bg.dim } })} />
           <Range label={t("studio.blurDim")} min={0} max={0.9} step={0.05} value={bg.dim}
             onChange={(dim) => setSpec({ background: { kind: "blur", sigma: bg.sigma, dim } })} />
+        </>
+      )}
+      {bg.kind === "image" && (
+        <>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => void pickBg()}
+              className="shrink-0 rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-xs text-text hover:bg-bg cursor-pointer">
+              {t("studio.pickImage")}
+            </button>
+            <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={bg.path}>
+              {bg.path.split(/[\\/]/).pop()}
+            </span>
+          </div>
+          <Range label={t("studio.zoom")} min={1} max={4} step={0.01} value={bg.zoom}
+            onChange={(zoom) => setSpec({ background: { ...bg, zoom } })} />
+          <Range label={t("studio.offsetX")} min={-1} max={1} step={0.01} value={bg.pan_x}
+            onChange={(pan_x) => setSpec({ background: { ...bg, pan_x } })} />
+          <Range label={t("studio.offsetY")} min={-1} max={1} step={0.01} value={bg.pan_y}
+            onChange={(pan_y) => setSpec({ background: { ...bg, pan_y } })} />
+          <Range label={t("studio.blurSigma")} min={0} max={60} step={1} value={bg.blur}
+            onChange={(blur) => setSpec({ background: { ...bg, blur } })} />
+          <Range label={t("studio.blurDim")} min={0} max={0.9} step={0.05} value={bg.dim}
+            onChange={(dim) => setSpec({ background: { ...bg, dim } })} />
+          <button type="button"
+            onClick={() => setSpec({ background: { ...bg, zoom: 1, pan_x: 0, pan_y: 0, blur: 0, dim: 0 } })}
+            className="self-start rounded-md border border-border bg-bg-secondary px-2 py-1 text-xs text-text hover:bg-bg cursor-pointer">
+            {t("studio.bgReset")}
+          </button>
         </>
       )}
       {spec.fit.kind === "fill" && spec.fit.zoom >= 1 && (

@@ -161,7 +161,8 @@
     "frameOptions": "Marco",
     "position": "Posición",
     "bgHiddenFill": "Rellenar cubre el lienzo: el fondo solo se ve al alejar el zoom.",
-    "marginFitOnly": "Margen y borde se aplican en modo Ajustar."
+    "marginFitOnly": "Margen y borde se aplican en modo Ajustar.",
+    "bgReset": "Restablecer imagen"
   },
   "settings": {
     "title": "Ajustes",
