@@ -356,7 +356,7 @@ fn compose(spec: &RenderSpec, src_w: u32, src_h: u32) -> String {
                 "[1:v]scale={zw}:{zh}:force_original_aspect_ratio=increase:flags=lanczos,\
                  crop={w}:{h}:'(iw-ow)*{fx:.4}':'(ih-oh)*{fy:.4}'{gb}{dm}[bg2];\
                  [0:v]{tf}{fg}[fg2];\
-                 [bg2][fg2]overlay={dx}:{dy}"
+                 [bg2][fg2]overlay={dx}:{dy}:shortest=1"
             )
         }
     };
@@ -929,6 +929,9 @@ mod tests {
         assert!(g.contains("[1:v]scale=2160:3840:force_original_aspect_ratio=increase"), "{g}");
         assert!(g.contains("crop=1080:1920:'(iw-ow)*1.0000':'(ih-oh)*0.0000'"), "{g}");
         assert!(g.contains("gblur=sigma=4,lutyuv=y='val*0.7'[bg2]"), "{g}");
+        // The looped still is the main overlay input: without shortest=1
+        // the output never ends.
+        assert!(g.contains("[bg2][fg2]overlay=") && g.contains(":shortest=1"), "{g}");
     }
 
     #[test]
