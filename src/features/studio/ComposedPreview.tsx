@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FastForward, Maximize, Pause, Play, Rewind, Volume2, VolumeX } from "lucide-react";
+import { Crosshair, FastForward, FlipHorizontal2, Maximize, Pause, Play, Rewind, RotateCw, Volume2, VolumeX, ZoomIn, ZoomOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { ipc, videoUrl } from "@/lib/ipc";
 import { specCanvas, specFrameCtx, useStudioStore, type StudioItem } from "@/stores/studio";
-import { constrain, foldLegacy, placement, snap, type Snap } from "@/lib/framing";
+import { constrain, foldLegacy, placement, snap, ZOOM_MAX, ZOOM_MIN, type Snap } from "@/lib/framing";
 import type { FitSpec } from "@/lib/ipc";
 
 const SNAP_PX = 8;
@@ -80,6 +80,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   const wmDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const setSpec = useStudioStore((s) => s.setSpec);
   const resetFraming = useStudioStore((s) => s.resetFraming);
+  const zoomTo = useStudioStore((s) => s.zoomTo);
   const [guides, setGuides] = useState<Pick<Snap, "x" | "y"> | null>(null);
   const [stageW, setStageW] = useState(0);
   const ctx = useMemo(() => specFrameCtx(spec, meta), [spec, meta]);
@@ -164,7 +165,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
   return (
     <div className="flex size-full flex-col">
       <div
-        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4"
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-4 pb-14 pt-4"
         style={{ containerType: "size" }}
       >
         <div
@@ -401,6 +402,38 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
             </button>
           )}
         </div>
+        <div className="absolute right-3 top-3 z-30 flex flex-col gap-1.5" data-no-wheel>
+          <ToolButton title={`${t("studio.rotate")} (${spec.rotate}°)`} onClick={() => setSpec({ rotate: (spec.rotate + 90) % 360 })}>
+            <RotateCw />
+          </ToolButton>
+          <ToolButton title={t("studio.mirror")} active={spec.flip} onClick={() => setSpec({ flip: !spec.flip })}>
+            <FlipHorizontal2 />
+          </ToolButton>
+          <ToolButton title={t("studio.resetFraming")} onClick={resetFraming}>
+            <Crosshair />
+          </ToolButton>
+        </div>
+        {/* Log-scale zoom: equal slider travel per doubling. */}
+        <div
+          className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-bg-secondary/90 px-3 py-1 text-xs text-text backdrop-blur"
+          title={t("studio.framingHint")}
+          data-no-wheel
+        >
+          <button type="button" aria-label="zoom out" onClick={() => zoomTo(spec.fit.zoom / 1.25)} className="text-text-secondary hover:text-text cursor-pointer">
+            <ZoomOut className="size-3.5" />
+          </button>
+          <input
+            type="range" min={Math.log(ZOOM_MIN)} max={Math.log(ZOOM_MAX)} step={0.01}
+            value={Math.log(spec.fit.zoom)}
+            onChange={(e) => zoomTo(Math.exp(Number(e.target.value)))}
+            className="h-1.5 w-28 cursor-pointer accent-accent"
+            aria-label={t("studio.zoom")}
+          />
+          <button type="button" aria-label="zoom in" onClick={() => zoomTo(spec.fit.zoom * 1.25)} className="text-text-secondary hover:text-text cursor-pointer">
+            <ZoomIn className="size-3.5" />
+          </button>
+          <span className="w-10 text-right tabular-nums">{Math.round(spec.fit.zoom * 100)}%</span>
+        </div>
       </div>
       {/* Player bar — below the stage so a narrow 9:16 canvas never clips it. */}
           <div
@@ -425,10 +458,10 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
                 if (el) el.currentTime = v;
                 setTime(v);
               }}
-              className="h-1.5 flex-1 cursor-pointer accent-accent"
+              className="h-1.5 w-0 min-w-0 flex-1 cursor-pointer accent-accent"
               aria-label="timeline"
             />
-            <span className="text-[11px] tabular-nums text-white/80">{fmtT(time)} / {fmtT(dur)}</span>
+            <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-white/80">{fmtT(time)} / {fmtT(dur)}</span>
             <button type="button" title={muted ? t("player.unmute") : t("player.mute")}
               onClick={() => { const m = !muted; setMuted(m); const el = videoRef.current; if (el) el.muted = m; }}
               className="rounded p-1 text-white/80 hover:text-white cursor-pointer">
@@ -438,7 +471,7 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume}
               title={t("player.volume")}
               onChange={(e) => { const v = Number(e.target.value); setVolume(v); setMuted(v === 0); const el = videoRef.current; if (el) { el.volume = v; el.muted = v === 0; } }}
-              className="w-14 accent-accent"
+              className="w-12 shrink-0 accent-accent"
             />
             <button
               type="button"
@@ -452,5 +485,22 @@ export function ComposedPreview({ item, onError }: { item: StudioItem; onError: 
               className="rounded p-1 text-white/80 hover:text-white cursor-pointer"><Maximize size={15} /></button>
           </div>
     </div>
+  );
+}
+
+function ToolButton({ title, active, onClick, children }: { title: string; active?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`flex size-8 items-center justify-center rounded-lg border backdrop-blur transition-colors cursor-pointer [&_svg]:size-4 ${
+        active ? "border-accent bg-accent/30 text-white" : "border-border bg-bg-secondary/80 text-text-secondary hover:text-text"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

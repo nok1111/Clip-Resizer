@@ -75,6 +75,29 @@ function selectedMeta(s: { items: StudioItem[]; selected: string | null }): Vide
   return s.items.find((i) => i.path === s.selected)?.meta ?? null;
 }
 
+/** Where a framing edit lands: the selected video's override, else the shared fit. */
+function fitTarget(
+  s: { selected: string | null; fitByPath: Record<string, FitSpec> },
+  fit: FitSpec,
+): Partial<{ sharedFit: FitSpec; fitByPath: Record<string, FitSpec> }> {
+  if (s.selected && s.fitByPath[s.selected]) return { fitByPath: { ...s.fitByPath, [s.selected]: fit } };
+  return { sharedFit: fit };
+}
+
+function without<T>(o: Record<string, T>, key: string): Record<string, T> {
+  const r = { ...o };
+  delete r[key];
+  return r;
+}
+
+/** Effective framing for any video (override, else shared). */
+export function fitFor(
+  s: { sharedFit: FitSpec; fitByPath: Record<string, FitSpec> },
+  path: string,
+): FitSpec {
+  return s.fitByPath[path] ?? s.sharedFit;
+}
+
 export function buildRenderSpec(input: string, s: StudioSpec): RenderSpec {
   return {
     input,
@@ -149,6 +172,14 @@ interface StudioState {
   /** Lazily renders a thumbnail for one item (called by visible rows). */
   ensureThumb: (path: string) => Promise<void>;
   spec: StudioSpec;
+  /** Framing shared by every video without its own override. */
+  sharedFit: FitSpec;
+  /** Per-video framing overrides ("this video only"). */
+  fitByPath: Record<string, FitSpec>;
+  /** Give the selected video its own framing, or return it to the shared one. */
+  setFitScope: (scope: "one" | "all") => void;
+  /** Make the selected video's framing the shared one and drop all overrides. */
+  applyFitToAll: () => void;
   setSpec: (patch: Partial<StudioSpec>) => void;
   /** Zoom keeping `anchor` (canvas px, default centre) fixed on screen. */
   zoomTo: (zoom: number, anchor?: { x: number; y: number }) => void;
@@ -160,7 +191,7 @@ interface StudioState {
   cancelRender: () => Promise<void>;
   verifyFrame: (tS: number) => Promise<void>;
   /** Queue every ready item with the current spec (batch Phase 4). */
-  enqueueAll: () => Promise<void>;
+  enqueueAll: () => Promise<boolean>;
 }
 
 export const useStudioStore = create<StudioState>((set, get) => ({
@@ -230,15 +261,22 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
 
   removeItem: (path) => {
+    const fitByPath = without(get().fitByPath, path);
     set({
       items: get().items.filter((i) => i.path !== path),
       selected: get().selected === path ? null : get().selected,
+      fitByPath,
     });
   },
 
-  clear: () => set({ items: [], selected: null, scanNotice: null, error: null }),
+  clear: () => set({ items: [], selected: null, scanNotice: null, error: null, fitByPath: {} }),
 
-  select: (path) => set({ selected: path }),
+  select: (path) => {
+    const st = get();
+    const fit = (path && st.fitByPath[path]) || st.sharedFit;
+    const meta = st.items.find((i) => i.path === path)?.meta;
+    set({ selected: path, spec: normalizeFraming({ ...st.spec, fit }, meta), previewFrameUrl: null });
+  },
 
   ensureThumb: async (path) => {
     const state = get();
@@ -269,10 +307,24 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
 
   spec: DEFAULT_SPEC,
+  sharedFit: DEFAULT_SPEC.fit,
+  fitByPath: {},
+  setFitScope: (scope) => {
+    const st = get();
+    const sel = st.selected;
+    if (!sel) return;
+    if (scope === "one") {
+      set({ fitByPath: { ...st.fitByPath, [sel]: st.spec.fit } });
+    } else {
+      const fitByPath = without(st.fitByPath, sel);
+      set({ fitByPath, spec: normalizeFraming({ ...st.spec, fit: st.sharedFit }, selectedMeta(st)), previewFrameUrl: null });
+    }
+  },
+  applyFitToAll: () => set({ sharedFit: get().spec.fit, fitByPath: {} }),
   setSpec: (patch) => {
     const cur = get().spec;
     const next = normalizeFraming({ ...cur, ...patch }, selectedMeta(get()));
-    set({ spec: next, previewFrameUrl: null });
+    set({ spec: next, ...fitTarget(get(), next.fit), previewFrameUrl: null });
     // Keep the honest encoder name in sync with the codec choice — only
     // when the codec actually changes (setSpec runs on every drag move).
     const codec = next.export.codec;
@@ -290,10 +342,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const s = get().spec;
     const meta = selectedMeta(get());
     if (!meta) {
-      set({ spec: { ...s, fit: { ...s.fit, zoom } }, previewFrameUrl: null });
+      const fit = { ...s.fit, zoom };
+      set({ spec: { ...s, fit }, ...fitTarget(get(), fit), previewFrameUrl: null });
       return;
     }
-    set({ spec: { ...s, fit: zoomAt(s.fit, specFrameCtx(s, meta), zoom, anchor) }, previewFrameUrl: null });
+    const fit = zoomAt(s.fit, specFrameCtx(s, meta), zoom, anchor);
+    set({ spec: { ...s, fit }, ...fitTarget(get(), fit), previewFrameUrl: null });
   },
   resetFraming: () => get().setSpec({ fit: freshFit(get().spec.fit.kind) }),
   render: idleRender,
@@ -350,20 +404,22 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   enqueueAll: async () => {
     const s = get();
     const ready = s.items.filter((i) => i.status === "ready");
-    if (ready.length === 0) return;
+    if (ready.length === 0) return false;
     const dir =
       (await ipc.getSettings()).defaultOutputDir ?? (await ipc.pickOutputDir()) ?? undefined;
-    if (!dir) return;
+    if (!dir) return false;
     const { useQueueStore } = await import("@/stores/queue");
     try {
       await ipc.enqueueRender(
-        ready.map((i) => buildRenderSpec(i.path, s.spec)),
+        ready.map((i) => buildRenderSpec(i.path, { ...s.spec, fit: fitFor(s, i.path) })),
         dir,
         "rename",
         (e) => useQueueStore.getState().apply(e),
       );
+      return true;
     } catch (e) {
       set({ render: { ...get().render, error: errorMessage(e) } });
+      return false;
     }
   },
 }));

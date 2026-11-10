@@ -1,23 +1,22 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Film, Monitor, SlidersHorizontal, Smartphone, Square, type LucideIcon } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import type { AspectPreset, AudioMode, QualityPreset, VideoCodec } from "@/lib/ipc";
 import { ASPECT_CANVAS, useStudioStore, specCanvas } from "@/stores/studio";
 import { freshFit, ZOOM_MAX, ZOOM_MIN } from "@/lib/framing";
 
-const PRESET_META: Record<Exclude<AspectPreset, "custom">, { icon: LucideIcon; sub: string }> = {
-  "9:16": { icon: Smartphone, sub: "vertical" },
-  "1:1": { icon: Square, sub: "square" },
-  "4:5": { icon: Smartphone, sub: "portrait" },
-  "16:9": { icon: Monitor, sub: "hd" },
-  "4:3": { icon: Monitor, sub: "classic" },
-  "3:4": { icon: Smartphone, sub: "portrait" },
+const PRESET_META: Record<Exclude<AspectPreset, "custom">, { sub: string }> = {
+  "9:16": { sub: "vertical" },
+  "1:1": { sub: "square" },
+  "4:5": { sub: "portrait" },
+  "16:9": { sub: "hd" },
+  "4:3": { sub: "classic" },
+  "3:4": { sub: "portrait" },
 };
 
 const RESOLUTIONS: Array<{ key: string; h: number }> = [
@@ -27,7 +26,8 @@ const RESOLUTIONS: Array<{ key: string; h: number }> = [
   { key: "r540", h: 540 },
 ];
 
-export function FormatPanel() {
+/** Output format chips + resolution, shown above the preview. */
+export function FormatBar() {
   const { t } = useTranslation();
   const spec = useStudioStore((s) => s.spec);
   const setSpec = useStudioStore((s) => s.setSpec);
@@ -40,298 +40,171 @@ export function FormatPanel() {
     const w = Math.round(((h * ratio) / 2)) * 2;
     setSpec({ preset: "custom", custom: { width: w, height: h } });
   };
+  const chip = (active: boolean) =>
+    cn(
+      "flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors cursor-pointer",
+      active
+        ? "border-accent bg-accent/20 text-text"
+        : "border-border bg-bg-secondary text-text-secondary hover:border-accent/50 hover:text-text",
+    );
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2">
-          <Film className="size-4 text-accent" />
-          {t("studio.format")}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="grid grid-cols-3 gap-2">
-          {presets.map((p) => {
-            const Meta = PRESET_META[p];
-            const active = spec.preset === p;
-            return (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setSpec({ preset: p })}
-                className={cn(
-                  "flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 transition-all cursor-pointer",
-                  active
-                    ? "border-accent bg-accent/15 text-text shadow-[0_0_12px_-2px_var(--cr-accent)]"
-                    : "border-border bg-bg-secondary text-text-secondary hover:border-accent/50 hover:text-text",
-                )}
-              >
-                <Meta.icon className={cn("size-5", active && "text-accent")} />
-                <span className="text-xs font-medium">{p}</span>
-                <span className="text-[10px] text-text-secondary">{t(`studio.sub.${Meta.sub}`)}</span>
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setSpec({ preset: "custom" })}
-            className={cn(
-              "flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 transition-all cursor-pointer",
-              spec.preset === "custom"
-                ? "border-accent bg-accent/15 text-text shadow-[0_0_12px_-2px_var(--cr-accent)]"
-                : "border-border bg-bg-secondary text-text-secondary hover:border-accent/50 hover:text-text",
-            )}
-          >
-            <SlidersHorizontal className={cn("size-5", spec.preset === "custom" && "text-accent")} />
-            <span className="text-xs font-medium">{t("studio.custom")}</span>
-            <span className="text-[10px] text-text-secondary">{canvas.width}×{canvas.height}</span>
+    <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2" data-no-wheel>
+      {presets.map((p) => {
+        return (
+          <button key={p} type="button" title={t(`studio.sub.${PRESET_META[p].sub}`)} onClick={() => setSpec({ preset: p })} className={chip(spec.preset === p)}>
+            {p}
           </button>
-        </div>
-        <label className="flex items-center gap-3 text-xs text-text-secondary">
-          {t("studio.resolution")}
-          <Select
-            value={RESOLUTIONS.some((r) => String(r.h) === resKey) ? resKey : "custom"}
-            onValueChange={(v) => {
-              const r = RESOLUTIONS.find((x) => String(x.h) === v);
-              if (r) setResolution(r.h);
-            }}
-            options={[
-              ...RESOLUTIONS.map((r) => ({ value: String(r.h), label: t(`studio.res.${r.key}`) })),
-              ...(spec.preset === "custom" ? [{ value: "custom", label: `${canvas.width} × ${canvas.height}` }] : []),
-            ]}
-            className="h-8 min-w-0 flex-1 text-xs"
+        );
+      })}
+      <button type="button" onClick={() => setSpec({ preset: "custom" })} className={chip(spec.preset === "custom")}>
+        <SlidersHorizontal className="size-3.5" />
+        {t("studio.custom")}
+      </button>
+      {spec.preset === "custom" ? (
+        <span className="flex items-center gap-1">
+          <Input
+            type="number" min={16} max={7680} step={2}
+            value={spec.custom.width}
+            onChange={(e) => setSpec({ custom: { ...spec.custom, width: even(e.target.value, spec.custom.width) } })}
+            className="h-7 w-20 text-xs" aria-label={t("studio.width")}
           />
-        </label>
-        {spec.preset === "custom" && (
-          <div className="flex items-center gap-2">
-            <Input
-              type="number" min={16} max={7680} step={2}
-              value={spec.custom.width}
-              onChange={(e) => setSpec({ custom: { ...spec.custom, width: even(e.target.value, spec.custom.width) } })}
-              className="w-24" aria-label={t("studio.width")}
-            />
-            <span className="text-text-secondary">×</span>
-            <Input
-              type="number" min={16} max={7680} step={2}
-              value={spec.custom.height}
-              onChange={(e) => setSpec({ custom: { ...spec.custom, height: even(e.target.value, spec.custom.height) } })}
-              className="w-24" aria-label={t("studio.height")}
-            />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          <span className="text-text-secondary">×</span>
+          <Input
+            type="number" min={16} max={7680} step={2}
+            value={spec.custom.height}
+            onChange={(e) => setSpec({ custom: { ...spec.custom, height: even(e.target.value, spec.custom.height) } })}
+            className="h-7 w-20 text-xs" aria-label={t("studio.height")}
+          />
+        </span>
+      ) : (
+        <Select
+          value={RESOLUTIONS.some((r) => String(r.h) === resKey) ? resKey : "custom"}
+          onValueChange={(v) => {
+            const r = RESOLUTIONS.find((x) => String(x.h) === v);
+            if (r) setResolution(r.h);
+          }}
+          options={[
+            ...RESOLUTIONS.map((r) => ({ value: String(r.h), label: t(`studio.res.${r.key}`) })),
+            ...(RESOLUTIONS.some((r) => String(r.h) === resKey) ? [] : [{ value: "custom", label: `${canvas.width} × ${canvas.height}` }]),
+          ]}
+          aria-label={t("studio.resolution")}
+          className="h-7 w-auto min-w-0 text-xs"
+        />
+      )}
+    </div>
   );
 }
 
-export function OptionsPanel() {
-  const { t } = useTranslation();
-  const spec = useStudioStore((s) => s.spec);
-  const setSpec = useStudioStore((s) => s.setSpec);
-  const render = useStudioStore((s) => s.render);
-  const startRender = useStudioStore((s) => s.startRender);
-  const cancelRender = useStudioStore((s) => s.cancelRender);
-  const canExport = useStudioStore((s) => s.items.some((i) => i.path === s.selected && i.status === "ready"));
-  const e = spec.export;
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2">
-          <SlidersHorizontal className="size-4 text-accent" />
-          {t("studio.options")}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <Field label={t("studio.adjust")}>
-          <Select<string>
-            value={spec.background.kind}
-            onValueChange={(kind) =>
-              setSpec({
-                background: kind === "blur" ? { kind: "blur", sigma: 20, dim: 0.35 } : { kind: "solid", color: "#101418" },
-              })
-            }
-            options={[
-              { value: "blur", label: t("studio.bgBlur") },
-              { value: "solid", label: t("studio.bgSolid") },
-            ]}
-            className="h-8 min-w-0 w-full text-xs"
-          />
-        </Field>
-        <Field label={t("studio.cropMode")}>
-          <Segmented
-            value={spec.fit.kind}
-            onValueChange={(kind) =>
-              setSpec({
-                fit:
-                  freshFit(kind),
-              })
-            }
-            options={[
-              { value: "fill", label: t("studio.crop") },
-              { value: "fit", label: t("studio.fitTo") },
-            ]}
-            aria-label={t("studio.cropMode")}
-          />
-        </Field>
-        <Field label={t("studio.quality")}>
-          <Select<QualityPreset>
-            value={e.quality}
-            onValueChange={(quality) => setSpec({ export: { ...e, quality } })}
-            options={[
-              { value: "fast", label: t("studio.qFast") },
-              { value: "balanced", label: t("studio.qBalanced") },
-              { value: "high", label: t("studio.qHigh") },
-            ]}
-            aria-label={t("studio.quality")}
-            className="h-8 min-w-0 w-full text-xs"
-          />
-        </Field>
-        {render.running ? (
-          <Button variant="danger" className="mt-1 w-full" onClick={() => void cancelRender()}>
-            <svg className="size-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-            {t("render.cancel")}
-          </Button>
-        ) : (
-          <Button
-            variant="gradient"
-            className="mt-1 w-full"
-            disabled={!canExport}
-            onClick={() => void startRender()}
-          >
-            <svg className="size-4" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            {t("studio.exportVideo")}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function FitPanel() {
+export function FramingPanel() {
   const { t } = useTranslation();
   const spec = useStudioStore((s) => s.spec);
   const setSpec = useStudioStore((s) => s.setSpec);
   const zoomTo = useStudioStore((s) => s.zoomTo);
   const resetFraming = useStudioStore((s) => s.resetFraming);
-  const fill = spec.fit.kind === "fill" ? spec.fit : null;
-  const framingControls = (
-    <>
-      <Range label={t("studio.zoom")} min={ZOOM_MIN} max={ZOOM_MAX} step={0.01} value={spec.fit.zoom}
-        onChange={(zoom) => zoomTo(zoom)} />
-      <Range label={t("studio.offsetX")} min={-1} max={1} step={0.01} value={spec.fit.pan_x ?? 0}
-        onChange={(pan_x) => setSpec({ fit: { ...spec.fit, pan_x } })} />
-      <Range label={t("studio.offsetY")} min={-1} max={1} step={0.01} value={spec.fit.pan_y ?? 0}
-        onChange={(pan_y) => setSpec({ fit: { ...spec.fit, pan_y } })} />
-      <button
-        type="button"
-        title={t("studio.framingHint")}
-        onClick={resetFraming}
-        className="self-start rounded-md border border-border bg-bg-secondary px-2 py-1 text-xs text-text hover:bg-bg cursor-pointer"
-      >
-        {t("studio.resetFraming")}
-      </button>
-    </>
-  );
-
+  const own = useStudioStore((s) => s.selected != null && s.fitByPath[s.selected] != null);
+  const multi = useStudioStore((s) => s.items.length > 1);
+  const setFitScope = useStudioStore((s) => s.setFitScope);
+  const applyFitToAll = useStudioStore((s) => s.applyFitToAll);
+  const framed = spec.fit.kind === "fit";
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{t("studio.framing")}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <Segmented
-          value={spec.fit.kind}
-          onValueChange={(kind) =>
-            setSpec({
-              fit:
-                freshFit(kind),
-            })
-          }
-          options={[
-            { value: "fit", label: t("studio.fitMode") },
-            { value: "fill", label: t("studio.fillMode") },
-          ]}
-          aria-label={t("studio.framing")}
-        />
-        <div className="flex gap-2">
-          <button
-            type="button"
-            title={t("studio.rotate")}
-            onClick={() => setSpec({ rotate: (spec.rotate + 90) % 360 })}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text hover:bg-bg cursor-pointer"
-          >
-            ⟳ {spec.rotate}°
-          </button>
-          <button
-            type="button"
-            title={t("studio.mirror")}
-            onClick={() => setSpec({ flip: !spec.flip })}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs cursor-pointer ${spec.flip ? "border-accent bg-accent/10 text-accent" : "border-border bg-bg-secondary text-text hover:bg-bg"}`}
-          >
-            ⇋ {t("studio.mirror")}
-          </button>
-        </div>
-        {fill ? (
-          <>
-            {framingControls}
-          </>
-        ) : (
-          <>
-            <Segmented
-              value={spec.background.kind}
-              onValueChange={(kind) =>
-                setSpec({
-                  background:
-                    kind === "blur"
-                      ? { kind: "blur", sigma: 20, dim: 0.35 }
-                      : { kind: "solid", color: "#101418" },
-                })
-              }
-              options={[
-                { value: "blur", label: t("studio.bgBlur") },
-                { value: "solid", label: t("studio.bgSolid") },
-              ]}
-              aria-label={t("studio.background")}
-            />
-            {framingControls}
+    <>
+      <Segmented
+        value={spec.fit.kind}
+        onValueChange={(kind) => setSpec({ fit: freshFit(kind) })}
+        options={[
+          { value: "fill", label: t("studio.fillMode") },
+          { value: "fit", label: t("studio.fitMode") },
+        ]}
+        aria-label={t("studio.framing")}
+      />
+      <Section title={t("studio.position")}>
+        <Range label={t("studio.zoom")} min={ZOOM_MIN} max={ZOOM_MAX} step={0.01} value={spec.fit.zoom}
+          onChange={(zoom) => zoomTo(zoom)} />
+        <Range label={t("studio.offsetX")} min={-1} max={1} step={0.01} value={spec.fit.pan_x ?? 0}
+          onChange={(pan_x) => setSpec({ fit: { ...spec.fit, pan_x } })} />
+        <Range label={t("studio.offsetY")} min={-1} max={1} step={0.01} value={spec.fit.pan_y ?? 0}
+          onChange={(pan_y) => setSpec({ fit: { ...spec.fit, pan_y } })} />
+        <button
+          type="button"
+          title={t("studio.framingHint")}
+          onClick={resetFraming}
+          className="self-start rounded-md border border-border bg-bg-secondary px-2 py-1 text-xs text-text hover:bg-bg cursor-pointer"
+        >
+          {t("studio.resetFraming")}
+        </button>
+      </Section>
+      {multi && (
+        <Section title={t("studio.scopeLabel")}>
+          <Segmented
+            value={own ? "one" : "all"}
+            onValueChange={(v) => setFitScope(v)}
+            options={[
+              { value: "all", label: t("studio.scopeAll") },
+              { value: "one", label: t("studio.scopeOne") },
+            ]}
+            aria-label={t("studio.scopeLabel")}
+          />
+          {own && (
+            <button type="button" onClick={applyFitToAll}
+              className="self-start text-xs text-accent hover:underline cursor-pointer">
+              {t("studio.applyToAll")}
+            </button>
+          )}
+        </Section>
+      )}
+      {framed && (
+        <Section title={t("studio.frameOptions")}>
             <Range label={t("studio.margin")} min={0} max={0.3} step={0.01} value={spec.margin}
               onChange={(margin) => setSpec({ margin })} />
             <Range label={t("studio.borderPx")} min={0} max={24} step={1} value={spec.border[0]}
               onChange={(b) => setSpec({ border: [b, spec.border[1]] })} />
             {spec.border[0] > 0 && (
-              <label className="flex items-center gap-3 text-xs text-text-secondary">
-                {t("studio.borderColor")}
-                <input
-                  type="color"
-                  value={spec.border[1]}
-                  onChange={(e) => setSpec({ border: [spec.border[0], e.target.value] })}
-                  className="h-8 w-14 cursor-pointer rounded border border-border bg-transparent"
-                />
-              </label>
+              <ColorRow label={t("studio.borderColor")} value={spec.border[1]}
+                onChange={(c) => setSpec({ border: [spec.border[0], c] })} />
             )}
-            {spec.background.kind === "solid" && (
-              <label className="flex items-center gap-3 text-xs text-text-secondary">
-                {t("studio.bgColor")}
-                <input
-                  type="color"
-                  value={spec.background.color}
-                  onChange={(e) => setSpec({ background: { kind: "solid", color: e.target.value } })}
-                  className="h-8 w-14 cursor-pointer rounded border border-border bg-transparent"
-                />
-              </label>
-            )}
-            {spec.background.kind === "blur" && (
-              <>
-                <Range label={t("studio.blurSigma")} min={2} max={60} step={1} value={spec.background.sigma}
-                  onChange={(sigma) => setSpec({ background: { kind: "blur", sigma, dim: spec.background.kind === "blur" ? spec.background.dim : 0.35 } })} />
-                <Range label={t("studio.blurDim")} min={0} max={0.9} step={0.05} value={spec.background.dim}
-                  onChange={(dim) => setSpec({ background: { kind: "blur", sigma: spec.background.kind === "blur" ? spec.background.sigma : 20, dim } })} />
-              </>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+        </Section>
+      )}
+    </>
+  );
+}
+
+export function BackgroundPanel() {
+  const { t } = useTranslation();
+  const spec = useStudioStore((s) => s.spec);
+  const setSpec = useStudioStore((s) => s.setSpec);
+  const bg = spec.background;
+  return (
+    <Section title={t("studio.background")}>
+      <Segmented
+        value={bg.kind === "solid" ? "solid" : "blur"}
+        onValueChange={(kind) =>
+          setSpec({
+            background: kind === "blur" ? { kind: "blur", sigma: 20, dim: 0.35 } : { kind: "solid", color: "#101418" },
+          })
+        }
+        options={[
+          { value: "blur", label: t("studio.bgBlur") },
+          { value: "solid", label: t("studio.bgSolid") },
+        ]}
+        aria-label={t("studio.background")}
+      />
+      {bg.kind === "solid" && (
+        <ColorRow label={t("studio.bgColor")} value={bg.color}
+          onChange={(color) => setSpec({ background: { kind: "solid", color } })} />
+      )}
+      {bg.kind === "blur" && (
+        <>
+          <Range label={t("studio.blurSigma")} min={2} max={60} step={1} value={bg.sigma}
+            onChange={(sigma) => setSpec({ background: { kind: "blur", sigma, dim: bg.dim } })} />
+          <Range label={t("studio.blurDim")} min={0} max={0.9} step={0.05} value={bg.dim}
+            onChange={(dim) => setSpec({ background: { kind: "blur", sigma: bg.sigma, dim } })} />
+        </>
+      )}
+      {spec.fit.kind === "fill" && spec.fit.zoom >= 1 && (
+        <p className="text-xs text-text-secondary">{t("studio.bgHiddenFill")}</p>
+      )}
+    </Section>
   );
 }
 
@@ -343,11 +216,7 @@ export function ExportPanel() {
   const e = spec.export;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{t("studio.export")}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3">
+    <Section title={t("studio.export")} className="grid grid-cols-2 gap-3">
         <Field label={t("studio.codec")}>
           <Select<VideoCodec>
             value={e.codec}
@@ -416,8 +285,7 @@ export function ExportPanel() {
         <p className="col-span-2 text-xs text-text-secondary">
           {t("studio.encoder", { name: encoder ?? "—" })}
         </p>
-      </CardContent>
-    </Card>
+      </Section>
   );
 }
 
@@ -429,11 +297,7 @@ export function GuidesPanel() {
   const toggle = (k: "safe" | "thirds" | "center" | "export") =>
     setSpec({ guides: { ...g, [k]: !g[k] } });
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{t("studio.guides")}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+    <Section title={t("studio.guides")} className="grid grid-cols-2 gap-2">
         {(
           [
             ["safe", "studio.guideSafe"],
@@ -452,8 +316,7 @@ export function GuidesPanel() {
             {t(key)}
           </label>
         ))}
-      </CardContent>
-    </Card>
+      </Section>
   );
 }
 
@@ -463,11 +326,7 @@ export function OverlayPanel() {
   const setSpec = useStudioStore((s) => s.setSpec);
   const ov = spec.overlay;
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{t("studio.overlay")}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <Section title={t("studio.overlay")} className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -507,8 +366,7 @@ export function OverlayPanel() {
               onChange={(offsetY) => setSpec({ overlay: { ...ov, offsetY } })} />
           </>
         )}
-      </CardContent>
-    </Card>
+      </Section>
   );
 }
 
@@ -531,11 +389,7 @@ export function WatermarkPanel() {
     if (typeof p === "string") place(p);
   };
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{t("studio.watermark")}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <Section title={t("studio.watermark")} className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => void pickImage()}
             className="rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-xs text-text hover:bg-bg cursor-pointer">
@@ -577,8 +431,7 @@ export function WatermarkPanel() {
               onChange={(offsetY) => setSpec({ watermark: { ...wm, offsetY } })} />
           </>
         )}
-      </CardContent>
-    </Card>
+      </Section>
   );
 }
 
@@ -646,5 +499,25 @@ function NumberBox({ value, min, max, step, digits, onChange }: { value: number;
       }}
       className="w-12 rounded border border-transparent bg-transparent px-1 text-right tabular-nums text-text hover:border-border focus:border-accent focus:outline-none"
     />
+  );
+}
+
+export function Section({ title, className, children }: { title: string; className?: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2.5">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">{title}</h3>
+      <div className={cn("flex flex-col gap-3", className)}>{children}</div>
+    </section>
+  );
+}
+
+function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex items-center gap-3 text-xs text-text-secondary">
+      <span className="w-16 shrink-0">{label}</span>
+      <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+        className="h-7 w-12 cursor-pointer rounded border border-border bg-transparent" />
+      <span className="tabular-nums text-text">{value}</span>
+    </label>
   );
 }

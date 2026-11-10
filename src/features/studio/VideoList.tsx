@@ -1,18 +1,17 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertTriangle, Clapperboard, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { aspectLabel, formatBytes, formatDurationMs } from "@/lib/format";
+import { AlertTriangle, Clapperboard, Crop, X } from "lucide-react";
+import { aspectLabel, formatBytes, formatDurationMs, formatFps } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useStudioStore, type StudioItem } from "@/stores/studio";
 
-const ROW_HEIGHT = 64;
+const ROW_HEIGHT = 56;
 
-const STATUS_VARIANT = {
-  probing: "warning",
-  ready: "success",
-  error: "danger",
+const STATUS_DOT = {
+  probing: "bg-warning animate-pulse",
+  ready: "bg-success",
+  error: "bg-danger",
 } as const;
 
 export function VideoList() {
@@ -72,63 +71,64 @@ function VideoRow({
   }, [item.path, item.status, ensureThumb]);
 
   const m = item.meta;
+  const own = useStudioStore((s) => s.fitByPath[item.path] != null);
+  const details = m
+    ? [
+        item.path,
+        `${m.width}×${m.height} (${aspectLabel(m.width, m.height)}) · ${formatFps(m.fps)} fps · ${m.codec.toUpperCase()}`,
+        `${formatDurationMs(m.durationMs)} · ${formatBytes(item.size)}${m.bitrateKbps ? ` · ${m.bitrateKbps.toLocaleString()} kbps` : ""}`,
+        `${t("studio.audio")}: ${m.hasAudio ? t("studio.audioYes") : t("studio.audioNo")}`,
+      ].join("\n")
+    : item.path;
   return (
-    <button
-      type="button"
+    <div
       role="listitem"
-      onClick={onSelect}
       className={cn(
-        "absolute left-0 top-0 flex w-full items-center gap-3 border-b border-border/60 px-3 text-left transition-colors",
-        selected ? "bg-card-hover" : "hover:bg-card-hover/60",
+        "group absolute left-0 top-0 flex w-full items-center gap-2.5 border-b border-border/60 px-2.5 text-left transition-colors",
+        selected ? "bg-card-hover shadow-[inset_3px_0_0_var(--cr-accent)]" : "hover:bg-card-hover/60",
       )}
       style={{ height: ROW_HEIGHT, transform: `translateY(${top}px)` }}
     >
-      <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-bg-secondary">
-        {item.thumbUrl ? (
-          <img src={item.thumbUrl} alt="" className="size-full object-cover" draggable={false} />
-        ) : item.status === "error" ? (
-          <AlertTriangle className="size-5 text-danger/70" />
-        ) : (
-          <Clapperboard className="size-5 text-text-secondary/50" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-text" title={item.path}>
-          {item.name}
-        </span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-secondary">
-          <span className="tabular-nums">{formatBytes(item.size)}</span>
-          {m && (
-            <>
-              <span className="tabular-nums">{formatDurationMs(m.durationMs)}</span>
-              <span className="tabular-nums">
-                {m.width}×{m.height}
-              </span>
-              <span>{aspectLabel(m.width, m.height)}</span>
-              <span className="uppercase">{m.codec}</span>
-            </>
-          )}
-          {item.status === "error" && (
-            <span className="truncate text-danger" title={item.error ?? undefined}>
-              {item.error}
-            </span>
+      <button type="button" onClick={onSelect} title={details} className="flex min-w-0 flex-1 items-center gap-2.5 text-left cursor-pointer">
+        <span className="flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-bg-secondary">
+          {item.thumbUrl ? (
+            <img src={item.thumbUrl} alt="" className="size-full object-cover" draggable={false} />
+          ) : item.status === "error" ? (
+            <AlertTriangle className="size-4 text-danger/70" />
+          ) : (
+            <Clapperboard className="size-4 text-text-secondary/50" />
           )}
         </span>
-      </span>
-      <Badge variant={STATUS_VARIANT[item.status]}>{t(`studio.status${item.status === "probing" ? "Probing" : item.status === "ready" ? "Ready" : "Error"}`)}</Badge>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-medium text-text">{item.name}</span>
+          <span className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-text-secondary">
+            {m ? (
+              <>
+                <span className="tabular-nums">{formatDurationMs(m.durationMs)}</span>
+                <span className="tabular-nums">{m.width}×{m.height}</span>
+              </>
+            ) : item.status === "error" ? (
+              <span className="truncate text-danger">{item.error}</span>
+            ) : (
+              <span>{t("studio.statusProbing")}</span>
+            )}
+            {own && <Crop className="size-3 shrink-0 text-accent" aria-label={t("studio.ownFraming")} />}
+          </span>
+        </span>
+      </button>
       <span
-        role="button"
-        tabIndex={-1}
+        className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[item.status])}
+        title={t(`studio.status${item.status === "probing" ? "Probing" : item.status === "ready" ? "Ready" : "Error"}`)}
+      />
+      <button
+        type="button"
         aria-label={t("studio.remove")}
         title={t("studio.remove")}
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        className="shrink-0 rounded p-1 text-text-secondary hover:bg-bg-secondary hover:text-text"
+        onClick={onRemove}
+        className="shrink-0 rounded p-1 text-text-secondary opacity-0 transition-opacity hover:bg-bg-secondary hover:text-text group-hover:opacity-100 focus:opacity-100 cursor-pointer"
       >
-        <X className="size-4" />
-      </span>
-    </button>
+        <X className="size-3.5" />
+      </button>
+    </div>
   );
 }

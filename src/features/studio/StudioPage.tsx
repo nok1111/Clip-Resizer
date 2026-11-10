@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { FilePlus2, FolderPlus, Loader2, Trash2, Upload } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -11,6 +10,7 @@ import { useSettingsStore } from "@/stores/settings";
 import { useStudioStore } from "@/stores/studio";
 import { VideoList } from "./VideoList";
 import { PreviewPane } from "./PreviewPane";
+import { Inspector } from "./Inspector";
 
 const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "avi", "webm", "m4v"];
 
@@ -58,63 +58,52 @@ export function StudioPage() {
   const busy = s.scanning;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <PageHeader
-        title={t("nav.studio")}
-        description={t("modules.studio")}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="gradient" onClick={() => void addFiles()} disabled={busy || !ffmpegOk}>
-              <FilePlus2 />
-              {t("studio.addVideos")}
-            </Button>
-            <Button variant="secondary" onClick={() => void addFolder()} disabled={busy || !ffmpegOk}>
-              <FolderPlus />
-              {t("studio.addFolder")}
-            </Button>
-            <Button variant="ghost" onClick={s.clear} disabled={busy || s.items.length === 0}>
-              <Trash2 />
-              {t("studio.clear")}
-            </Button>
-            <span className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-text-secondary" aria-live="polite">
-              {busy ? (
-                <span className="flex items-center gap-1.5">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  {t("studio.scanning")}
-                </span>
-              ) : (
-                s.scanNotice ? (
-                  <>
-                    {t("studio.added", { count: s.scanNotice.added })}
-                    {s.scanNotice.duplicates > 0 && ` · ${t("studio.duplicates", { count: s.scanNotice.duplicates })}`}
-                    {s.scanNotice.rejected > 0 && ` · ${t("studio.unsupported", { count: s.scanNotice.rejected })}`}
-                    {s.scanNotice.truncated && ` · ${t("studio.truncated")}`}
-                  </>
-                ) : (
-                  t("studio.added", { count: s.items.length })
-                )
-              )}
-            </span>
-          </div>
-        }
-      />
-      <div className="flex min-h-0 flex-1 flex-col gap-4 px-8 pb-6">
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(380px,5fr)_minmax(420px,7fr)]">
-          <Card className={cn("relative min-h-0 overflow-hidden p-0", dragging && "ring-2 ring-accent")}>
-            {s.items.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
-                <Upload className="size-8 text-text-secondary/60" />
-                <p className="text-sm font-medium text-text">{t("studio.dropHint")}</p>
-                <p className="max-w-xs text-xs text-text-secondary">{t("studio.dropSub")}</p>
-              </div>
-            ) : (
-              <VideoList />
-            )}
-          </Card>
-          <PreviewPane />
+    <div className="flex h-full min-h-0 gap-3 p-3">
+      <Card className={cn("flex w-[248px] shrink-0 flex-col overflow-hidden p-0", dragging && "ring-2 ring-accent")}>
+        <div className="flex items-center gap-1.5 border-b border-border p-2">
+          <Button variant="gradient" size="sm" onClick={() => void addFiles()} disabled={busy || !ffmpegOk} title={t("studio.addVideos")}>
+            <FilePlus2 />
+            {t("studio.addVideosShort")}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => void addFolder()} disabled={busy || !ffmpegOk} title={t("studio.addFolder")}>
+            <FolderPlus />
+            {t("studio.addFolderShort")}
+          </Button>
+          <Button variant="ghost" size="sm" className="ml-auto px-2" onClick={s.clear} disabled={busy || s.items.length === 0} title={t("studio.clear")} aria-label={t("studio.clear")}>
+            <Trash2 />
+          </Button>
         </div>
-      </div>
+        <p className="border-b border-border px-3 py-1.5 text-[11px] text-text-secondary" aria-live="polite">
+          {busy ? (
+            <span className="flex items-center gap-1.5">
+              <Loader2 className="size-3 animate-spin" />
+              {t("studio.scanning")}
+            </span>
+          ) : s.scanNotice ? (
+            <>
+              {t("studio.added", { count: s.scanNotice.added })}
+              {s.scanNotice.duplicates > 0 && ` · ${t("studio.duplicates", { count: s.scanNotice.duplicates })}`}
+              {s.scanNotice.rejected > 0 && ` · ${t("studio.unsupported", { count: s.scanNotice.rejected })}`}
+              {s.scanNotice.truncated && ` · ${t("studio.truncated")}`}
+            </>
+          ) : (
+            t("studio.added", { count: s.items.length })
+          )}
+        </p>
+        <div className="relative min-h-0 flex-1">
+          {s.items.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+              <Upload className="size-8 text-text-secondary/60" />
+              <p className="text-sm font-medium text-text">{t("studio.dropHint")}</p>
+              <p className="text-xs text-text-secondary">{t("studio.dropSub")}</p>
+            </div>
+          ) : (
+            <VideoList />
+          )}
+        </div>
+      </Card>
+      <PreviewPane />
+      <Inspector />
     </div>
   );
 }

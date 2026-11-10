@@ -146,7 +146,22 @@
       "r4k": "4K (2160p)",
       "r540": "540p",
       "r720": "720p (1280×720)"
-    }
+    },
+    "layers": "Capas",
+    "addVideosShort": "Vídeos",
+    "addFolderShort": "Carpeta",
+    "scopeOne": "Este vídeo",
+    "scopeAll": "Todos",
+    "scopeLabel": "Aplicar encuadre a",
+    "applyToAll": "Usar este encuadre en todos",
+    "ownFraming": "Encuadre propio",
+    "change": "Cambiar",
+    "noOutputDir": "Carpeta de salida: se pregunta al exportar",
+    "enqueueAll": "Añadir todos a la cola ({{count}})",
+    "frameOptions": "Marco",
+    "position": "Posición",
+    "bgHiddenFill": "Rellenar cubre el lienzo: el fondo solo se ve al alejar el zoom.",
+    "marginFitOnly": "Margen y borde se aplican en modo Ajustar."
   },
   "settings": {
     "title": "Ajustes",

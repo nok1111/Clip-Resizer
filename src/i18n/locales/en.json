@@ -146,7 +146,22 @@
       "r4k": "4K (2160p)",
       "r540": "540p",
       "r720": "720p (1280×720)"
-    }
+    },
+    "layers": "Layers",
+    "addVideosShort": "Videos",
+    "addFolderShort": "Folder",
+    "scopeOne": "This video",
+    "scopeAll": "All videos",
+    "scopeLabel": "Apply framing to",
+    "applyToAll": "Use this framing for all videos",
+    "ownFraming": "Own framing",
+    "change": "Change",
+    "noOutputDir": "Output folder: asked on export",
+    "enqueueAll": "Add all to queue ({{count}})",
+    "frameOptions": "Frame",
+    "position": "Position",
+    "bgHiddenFill": "Fill covers the canvas: the background only shows when you zoom out.",
+    "marginFitOnly": "Margin and border apply in Fit mode."
   },
   "settings": {
     "title": "Settings",
