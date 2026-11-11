@@ -3,7 +3,7 @@ resolver = "2"
 members = ["src-tauri", "crates/cr-model", "crates/cr-files", "crates/cr-ffmpeg", "crates/cr-store"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "LicenseRef-Proprietary"
 rust-version = "1.80"
