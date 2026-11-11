@@ -492,7 +492,7 @@ dependencies = [
 
 [[package]]
 name = "clip-resizer"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "cr-ffmpeg",
  "cr-files",
@@ -597,7 +597,7 @@ dependencies = [
 
 [[package]]
 name = "cr-ffmpeg"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "cr-model",
  "serde",
@@ -608,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "cr-files"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "cr-model",
  "serde",
@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "cr-license"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
@@ -632,7 +632,7 @@ dependencies = [
 
 [[package]]
 name = "cr-model"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -642,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "cr-store"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "cr-model",
  "rusqlite",
