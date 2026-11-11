@@ -86,10 +86,8 @@ pub fn enqueue_render(
     if !dir.is_dir() {
         return Err(CommandError::new("output_dir_missing", output_dir.clone()));
     }
-    crate::policy::Policy::for_edition(
-        state.store.settings().map(|s| s.edition).unwrap_or_default(),
-    )
-    .check_batch(&specs)?;
+    crate::policy::Policy::for_settings(&state.store.settings().unwrap_or_default())
+        .check_batch(&specs)?;
     if state.running_render.lock().is_ok_and(|s| s.is_some()) {
         return Err(CommandError::new("busy", "a studio render is running"));
     }
@@ -434,11 +432,9 @@ pub fn render_history(state: State<'_, AppState>) -> CommandResult<Vec<cr_model:
 /// Current edition id ("free"/"pro") for honest UI gating.
 #[tauri::command]
 pub fn edition(state: State<'_, AppState>) -> CommandResult<String> {
-    Ok(crate::policy::Policy::for_edition(
-        state.store.settings()?.edition,
-    )
-    .id()
-    .to_string())
+    Ok(crate::policy::Policy::for_settings(&state.store.settings()?)
+        .id()
+        .to_string())
 }
 
 #[tauri::command]
@@ -447,7 +443,7 @@ pub fn save_preset(
     name: String,
     spec: String,
 ) -> CommandResult<i64> {
-    crate::policy::Policy::for_edition(state.store.settings()?.edition)
+    crate::policy::Policy::for_settings(&state.store.settings()?)
         .check_preset_save()?;
     Ok(state.store.save_preset(&name, &spec)?)
 }

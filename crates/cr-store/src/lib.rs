@@ -4,7 +4,7 @@
 mod migrations;
 mod settings;
 
-pub use settings::{Edition, Settings};
+pub use settings::Settings;
 
 use rusqlite::Connection;
 use std::path::Path;

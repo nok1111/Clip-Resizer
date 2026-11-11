@@ -1,8 +1,9 @@
 //! Declarative edition policy: Free vs Pro limits, enforced in the backend.
-//! License activation (Phase 6) will replace `settings.edition` as the source.
+//! The tier comes from the activated license key (`settings.license_key`).
 
+use cr_license::Edition;
 use cr_model::{Background, RenderSpec, VideoCodec};
-use cr_store::Edition;
+use cr_store::Settings;
 
 use crate::error::{CommandError, CommandResult};
 
@@ -18,7 +19,20 @@ pub enum Policy {
     Pro,
 }
 
+/// Resolves the license tier from persisted settings: a key that verifies
+/// against the publisher public key means Pro, anything else is Free.
+pub fn edition_for(settings: &Settings) -> Edition {
+    match settings.license_key.as_deref().map(cr_license::verify) {
+        Some(Ok(_)) => Edition::Pro,
+        _ => Edition::Free,
+    }
+}
+
 impl Policy {
+    pub fn for_settings(s: &Settings) -> Self {
+        Self::for_edition(edition_for(s))
+    }
+
     pub fn for_edition(e: Edition) -> Self {
         match e {
             Edition::Free => Self::Free,

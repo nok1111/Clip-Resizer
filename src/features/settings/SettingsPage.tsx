@@ -7,14 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "@/i18n";
-import { errorMessage, ipc, type Language, type Theme } from "@/lib/ipc";
+import { errorMessage, ipc, type Language, type LicenseStatus, type Theme } from "@/lib/ipc";
 import { useSettingsStore } from "@/stores/settings";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function SettingsPage() {
   const { t } = useTranslation();
   const { settings, appInfo, update, reset, saving, lastSavedAt, error } = useSettingsStore();
   const [resetBusy, setResetBusy] = useState(false);
+  const [license, setLicense] = useState<LicenseStatus | null>(null);
+  const [licenseKeyInput, setLicenseKeyInput] = useState("");
+  const [licenseBusy, setLicenseBusy] = useState(false);
+  const [licenseError, setLicenseError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void ipc.licenseStatus().then(setLicense).catch(() => setLicense(null));
+  }, []);
+
   if (!settings) return null;
 
   const set = (patch: Parameters<typeof update>[0]) => void update(patch);
@@ -25,6 +34,33 @@ export function SettingsPage() {
       if (dir) set({ defaultOutputDir: dir });
     } catch {
       /* dialog errors surface via update() if the value were invalid */
+    }
+  };
+
+  const activateLicense = async (key: string) => {
+    setLicenseBusy(true);
+    setLicenseError(null);
+    try {
+      setLicense(await ipc.licenseActivate(key));
+      setLicenseKeyInput("");
+      void update({ licenseKey: key });
+    } catch (e) {
+      setLicenseError(String(e).includes("invalid_license") ? t("settings.licenseInvalid") : errorMessage(e));
+    } finally {
+      setLicenseBusy(false);
+    }
+  };
+
+  const deactivateLicense = async () => {
+    setLicenseBusy(true);
+    setLicenseError(null);
+    try {
+      setLicense(await ipc.licenseDeactivate());
+      void update({ licenseKey: null });
+    } catch (e) {
+      setLicenseError(errorMessage(e));
+    } finally {
+      setLicenseBusy(false);
     }
   };
 
@@ -48,18 +84,6 @@ export function SettingsPage() {
                 aria-label={t("settings.theme")}
               />
             </Field>
-            <Field label={t("settings.edition")}>
-              <Segmented
-                value={settings.edition}
-                onValueChange={(edition) => set({ edition })}
-                options={[
-                  { value: "free", label: "Free" },
-                  { value: "pro", label: "Pro" },
-                ]}
-                aria-label={t("settings.edition")}
-              />
-              <p className="text-[11px] text-text-secondary/80">{t("settings.editionHint")}</p>
-            </Field>
             <Field label={t("settings.language")}>
               <Select<Language>
                 value={settings.language}
@@ -71,6 +95,47 @@ export function SettingsPage() {
                 aria-label={t("settings.language")}
               />
             </Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("settings.license")}</CardTitle>
+            <CardDescription>{t("settings.licenseHint")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-text-secondary">{t("settings.editionLabel")}</span>
+              <span className={license?.edition === "pro" ? "font-medium text-success" : "font-medium"}>
+                {license?.edition === "pro" ? "Pro" : "Free"}
+              </span>
+              {license?.keyId && <span className="text-xs text-text-secondary">· {license.keyId}</span>}
+            </div>
+            {license?.activated ? (
+              <div>
+                <Button variant="secondary" size="sm" disabled={licenseBusy} onClick={() => void deactivateLicense()}>
+                  {t("settings.licenseDeactivate")}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={licenseKeyInput}
+                  onChange={(e) => setLicenseKeyInput(e.target.value)}
+                  placeholder={t("settings.licensePlaceholder")}
+                  className="max-w-md font-mono text-xs"
+                  aria-label={t("settings.license")}
+                />
+                <Button
+                  size="sm"
+                  disabled={licenseBusy || !licenseKeyInput.trim()}
+                  onClick={() => void activateLicense(licenseKeyInput.trim())}
+                >
+                  {t("settings.licenseActivate")}
+                </Button>
+              </div>
+            )}
+            {licenseError && <p className="text-[11px] text-danger">{licenseError}</p>}
           </CardContent>
         </Card>
 

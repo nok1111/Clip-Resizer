@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["src-tauri", "crates/cr-model", "crates/cr-files", "crates/cr-ffmpeg", "crates/cr-store"]
+members = ["src-tauri", "crates/cr-model", "crates/cr-files", "crates/cr-ffmpeg", "crates/cr-store", "crates/cr-license"]
 
 [workspace.package]
 version = "0.2.0"
@@ -22,6 +22,7 @@ cr-model = { path = "crates/cr-model" }
 cr-files = { path = "crates/cr-files" }
 cr-ffmpeg = { path = "crates/cr-ffmpeg" }
 cr-store = { path = "crates/cr-store" }
+cr-license = { path = "crates/cr-license" }
 
 [profile.release]
 codegen-units = 1

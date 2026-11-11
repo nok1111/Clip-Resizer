@@ -17,8 +17,8 @@ concurrentRenders: number,
  */
 onboardingDone: boolean, 
 /**
- * Temporary until license activation lands (Phase 6): selects the
- * enforced policy. Defaults to `pro` so development isn't gated; a
- * release build will ship `free` until activated.
+ * Activated license key (verified against the publisher public key on
+ * each read). A valid key unlocks the Pro policy; absent or invalid
+ * keys leave the app in Free.
  */
-edition: "free" | "pro", };
+licenseKey: string | null, };

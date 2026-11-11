@@ -25,6 +25,7 @@ cr-model.workspace = true
 cr-files.workspace = true
 cr-ffmpeg.workspace = true
 cr-store.workspace = true
+cr-license.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.61.2", features = [

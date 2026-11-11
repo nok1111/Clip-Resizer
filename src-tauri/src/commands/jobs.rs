@@ -104,10 +104,8 @@ pub fn start_render(
         ));
     }
     let meta = probe_meta(&input)?;
-    crate::policy::Policy::for_edition(
-        state.store.settings().map(|s| s.edition).unwrap_or_default(),
-    )
-    .check_render(&spec)?;
+    crate::policy::Policy::for_settings(&state.store.settings().unwrap_or_default())
+        .check_render(&spec)?;
     let Some(final_path) = render::resolve_output(&dir, &input, spec.canvas, conflict) else {
         let _ = on_event.send(RenderEvent::Skipped);
         return Ok(());

@@ -190,8 +190,13 @@
     "engineMissing": "not installed — run scripts/fetch-ffmpeg.ps1",
     "licenses": "Third-party licences are bundled under THIRD_PARTY_NOTICES in the installer.",
     "loadError": "Could not load settings: {{message}}",
-    "edition": "Edition",
-    "editionHint": "Free/Pro policy — temporary until license activation"
+    "license": "License",
+    "licenseHint": "Paste a license key to activate Pro permanently.",
+    "editionLabel": "Edition",
+    "licensePlaceholder": "CR-…",
+    "licenseActivate": "Activate",
+    "licenseDeactivate": "Deactivate",
+    "licenseInvalid": "Invalid license key"
   },
   "status": {
     "ready": "Ready",

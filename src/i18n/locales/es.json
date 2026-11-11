@@ -190,8 +190,13 @@
     "engineMissing": "no instalado — ejecuta scripts/fetch-ffmpeg.ps1",
     "licenses": "Las licencias de terceros se incluyen en THIRD_PARTY_NOTICES en el instalador.",
     "loadError": "No se pudieron cargar los ajustes: {{message}}",
-    "edition": "Edición",
-    "editionHint": "Política Free/Pro — temporal hasta activación de licencia"
+    "license": "Licencia",
+    "licenseHint": "Pega una clave de licencia para activar Pro permanentemente.",
+    "editionLabel": "Edición",
+    "licensePlaceholder": "CR-…",
+    "licenseActivate": "Activar",
+    "licenseDeactivate": "Desactivar",
+    "licenseInvalid": "Clave de licencia inválida"
   },
   "status": {
     "ready": "Listo",

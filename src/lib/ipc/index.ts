@@ -11,6 +11,7 @@ import type { VideoCodec } from "./bindings/VideoCodec";
 import type { QueueEvent } from "./bindings/QueueEvent";
 import type { QueueItem } from "./bindings/QueueItem";
 import type { HistoryRow } from "./bindings/HistoryRow";
+import type { LicenseStatus } from "./bindings/LicenseStatus";
 
 export type { AppInfo } from "./bindings/AppInfo";
 export type { Language } from "./bindings/Language";
@@ -18,6 +19,7 @@ export type { OverlaySpec } from "./bindings/OverlaySpec";
 export type { WatermarkSpec } from "./bindings/WatermarkSpec";
 export type { LocalVideo } from "./bindings/LocalVideo";
 export type { ProbeError } from "./bindings/ProbeError";
+export type { LicenseStatus } from "./bindings/LicenseStatus";
 export type { ProbeResult } from "./bindings/ProbeResult";
 export type { RejectedFile } from "./bindings/RejectedFile";
 export type { RejectReason } from "./bindings/RejectReason";
@@ -102,6 +104,9 @@ export const ipc = {
   queueRemove: (id: number) => invoke<boolean>("queue_remove", { id }),
   renderHistory: () => invoke<HistoryRow[]>("render_history"),
   edition: () => invoke<"free" | "pro">("edition"),
+  licenseStatus: () => invoke<LicenseStatus>("license_status"),
+  licenseActivate: (key: string) => invoke<LicenseStatus>("license_activate", { key }),
+  licenseDeactivate: () => invoke<LicenseStatus>("license_deactivate"),
   savePreset: (name: string, spec: string) => invoke<number>("save_preset", { name, spec }),
   listPresets: () => invoke<[string, string][]>("list_presets"),
   deletePreset: (name: string) => invoke<boolean>("delete_preset", { name }),
